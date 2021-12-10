@@ -22,3 +22,7 @@ CLI functionality has been added to this python module so you can run the follow
 ``` shell
 amplify --version
 ```
+
+## Jupyter Notebooks
+
+These are found [here](notebooks/) and  used for development and testing. All functionality should be migrated to [amplify/train.py](amplify/train.py)
