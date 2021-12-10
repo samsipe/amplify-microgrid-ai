@@ -1,0 +1,5 @@
+numpy
+pandas
+
+# installs amplify in editable mode, comment this out if you use `python setup.py install`
+-e .
