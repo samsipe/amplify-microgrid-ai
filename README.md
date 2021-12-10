@@ -15,3 +15,10 @@ Run the following command to get `amplify` installed in your environment.
 ```shell
 pip install -r requirements.txt
 ```
+
+## Training
+CLI functionality has been added to this python module so you can run the following.
+
+``` shell
+amplify --version
+```
