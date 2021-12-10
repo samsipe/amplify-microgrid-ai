@@ -13,19 +13,21 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'amplify'
+NAME = 'amplify' # Lower Directory Name
+DIRECTORY = os.path.basename(os.getcwd())
 DESCRIPTION = 'This project aims to modernize how buildings interact with the grid'
 URL = 'https://github.com/samsipe/amplify-microgrid-ai'
 EMAIL = 'sam@sipe.io'
 AUTHOR = 'Sam Sipe'
 REQUIRES_PYTHON = '>=3.8.0'
 LICENSE='GPLv3'
+CMD = 'amplify=amplify.train:main'
 VERSION = ''  # imports from __version__.py
 
 # What packages are required for this module to be executed?
 REQUIRED = [
     # 'requests', 'maya', 'records',
-    'numpy', 'pandas',
+    'numpy', 'pandas', 'matplotlib',
 ]
 
 # What packages are optional?
@@ -51,8 +53,7 @@ except FileNotFoundError:
 # Load the package's __version__.py module as a dictionary.
 about = {}
 if not VERSION:
-    project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
-    with open(os.path.join(here, project_slug, '__version__.py')) as f:
+    with open(os.path.join(here, NAME, '__init__.py')) as f:
         exec(f.read(), about)
 else:
     about['__version__'] = VERSION
@@ -109,8 +110,9 @@ setup(
     url=URL,
     packages=find_packages(
         exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    package_data={
-        'smart_stac': ['extensions/json-schemas/*.json']
+    package_dir={DIRECTORY: NAME},
+    entry_points={
+        'console_scripts': [CMD],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
