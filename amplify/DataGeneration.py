@@ -50,28 +50,33 @@ class DataGenerator():
         """
         self.use_local_data = use_local_data    # track for later use
 
+        if not use_local_data:            
+            # ClearML Stuff
+            try:
+                self.clearml_task = Task.init(project_name="amplify", task_name="power-ss-notebook")
+
+                self.building_data_dir = glob(
+                    Dataset.get(
+                        dataset_project="amplify",
+                        dataset_name="building_data"
+                    ).get_local_copy()
+                    + "/**"
+                )[0]
+
+                self.weather_data_dir = glob(
+                    Dataset.get(
+                        dataset_project="amplify",
+                        dataset_name="weather_data"
+                    ).get_local_copy()
+                    + "/**"
+                )[0]
+            except:
+                print("Error: Cannot retrieve data from ClearML, using local data instead")
+                use_local_data = True
+
         if use_local_data:
             self.building_data_dir = LOC_BUILDING_DATA_PATH
             self.weather_data_dir = LOC_WEATHER_DATA_PATH
-        else:
-            # ClearML Stuff
-            self.clearml_task = Task.init(project_name="amplify", task_name="power-ss-notebook")
-
-            self.building_data_dir = glob(
-                Dataset.get(
-                    dataset_project="amplify",
-                    dataset_name="building_data"
-                ).get_local_copy()
-                + "/**"
-            )[0]
-
-            self.weather_data_dir = glob(
-                Dataset.get(
-                    dataset_project="amplify",
-                    dataset_name="weather_data"
-                ).get_local_copy()
-                + "/**"
-            )[0]
 
         self.weather_data_keep_columns = weather_features if weather_features else\
             [
