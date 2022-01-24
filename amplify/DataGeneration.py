@@ -255,7 +255,7 @@ class DataGenerator:
                     BUILDING_LAT, BUILDING_LON, date.to_pydatetime()
                 )
                 self.weather_data.loc[
-                    date, "irridance"
+                    date, "irradiance"
                 ] = radiation.get_radiation_direct(date.to_pydatetime(), altitude_deg)
 
             # Trim weather data to match building data timeframe:
