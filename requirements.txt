@@ -1,8 +1,13 @@
+# Amplify
 numpy
 pandas
-tensorflow>=2.0
-tensorboard>=2.0
+scikit-learn
+tensorflow>=2.7
+tensorboard
 matplotlib
+pysolar
+
+# Metrics and Data
 clearml
 
 # installs amplify in editable mode, comment this out if you use `python setup.py install`
