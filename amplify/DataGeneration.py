@@ -141,7 +141,7 @@ class DataGenerator:
         Load and format building data from file
 
         Return:
-            whether or not loading building data was successful (bool)
+            cleaned building data
         """        
         try:
             self.building_data = pd.read_csv(
@@ -222,10 +222,8 @@ class DataGenerator:
         """
         Load and format weather data from file
 
-        *NOTE: presumes that building data has already been loaded
-
         Return:
-            whether or not loading data was successful (bool)
+            cleaned weather data
         """
         
         try:
@@ -283,8 +281,7 @@ class DataGenerator:
         *NOTE: Forces Building and Weather data loading functions
         to run
         
-        Return: weather and building data were loaded,
-        including adjusted for daylight savings.
+        Return: merged clean building and weather data.
         """
         self.building_data = self._load_building_data()
         self.weather_data = self._load_weather_data()
