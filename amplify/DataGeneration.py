@@ -1,3 +1,5 @@
+import sys
+
 import pandas as pd
 import numpy as np
 from glob import glob
@@ -13,19 +15,21 @@ class DataGenerator:
 
     def __init__(
         self,
-        use_local_data: bool = False,
         weather_features: list = None,
         building_features: list = None,
         building_data_dir: str = None,
         weather_data_dir: str = None,
     ):
         """
-        Initialize data generator.
+        Initialize the data generator.
 
         Arguments:
-            use_local_data (bool)   : whether or not to use local data or ClearML server
+            weather_features (list)  : weather features to keep on import (optional)
+            building_features (list) : building features to keep on import (optional)
+            building_data_dir (str)  : location of local .csv of weather data (optional)
+            weather_data_dir (str)   : location of local .csv of  building data (optional)
         """
-        self.use_local_data = use_local_data
+
         self.weather_features = weather_features
         self.building_features = building_features
         self.building_data_dir = building_data_dir
@@ -48,6 +52,7 @@ class DataGenerator:
                 print(
                     "No directory was specified and building data could not be retrieved from ClearML"
                 )
+                sys.exit(1)
 
         if not self.weather_data_dir:
             try:
@@ -61,6 +66,7 @@ class DataGenerator:
                 print(
                     "No directory was specified and weather data could not be retrieved from ClearML"
                 )
+                sys.exit(1)
 
         # Set weather columns to keep
         self.weather_data_keep_columns = (
@@ -88,21 +94,10 @@ class DataGenerator:
 
     def load_data(self):
         """
-        Loads data for a specified building/weather data paths. If no paths are specified, uses
-        default paths.
-
-        *NOTE: if providing a path, will only use local data for paths not provided
-
-        Arguments:
-            building_data_path (str)    : building data file path (optional)
-            weather_data_path (str)     : weather data file path (optional)
+        Loads data for a specified building/weather data paths.
 
         Return:
-            (load_success, building_data, weather_data)
-
-            load_success (bool)         : whether or not loading data was successful
-            building_data (dataframe)   : building data
-            weather_data (dataframe)    : weather data
+            merged_data (dataframe)    : weather and building data in one dataframe
         """
 
         # Now actually load the data. 1st check that directories are set
@@ -117,11 +112,12 @@ class DataGenerator:
 
     def _load_building_data(self):
         """
-        Load and format building data from file
+        Load and format building data from file.
 
         Return:
-            cleaned building data
+            building_data (dataframe)
         """
+
         try:
             self.building_data = pd.read_csv(
                 self.building_data_dir, header=None, low_memory=False
@@ -194,15 +190,16 @@ class DataGenerator:
 
         except:
             print("Error: Cannot load building data!")
+            sys.exit(1)
 
         return self.building_data
 
     def _load_weather_data(self):
         """
-        Load and format weather data from file
+        Load, format, and calculate weather data from file.
 
         Return:
-            cleaned weather data
+            weather_data (dataframe)
         """
 
         try:
@@ -249,6 +246,7 @@ class DataGenerator:
 
         except:
             print("Error: Cannot load weather data")
+            sys.exit(1)
 
         return self.weather_data
 
@@ -257,11 +255,10 @@ class DataGenerator:
         With loaded weather data and building data,
         match indexes and adjust for daylight savings.
 
-        *NOTE: Forces Building and Weather data loading functions
-        to run
-
-        Return: merged clean building and weather data.
+        Return:
+            merged_data (dataframe)    : weather and building data in one dataframe
         """
+
         self.building_data = self._load_building_data()
         self.weather_data = self._load_weather_data()
 
