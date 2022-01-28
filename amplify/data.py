@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 from glob import glob
 
-from pysolar.solar import get_altitude, radiation
+from pysolar.solar import get_altitude
+from pysolar.radiation import get_radiation_direct
 from clearml import Dataset
 
 # TODO: replace prints with logging
@@ -235,9 +236,7 @@ class DataGenerator:
                 )
                 self.weather_data.loc[
                     date.to_pydatetime(), "irradiance"
-                ] = radiation.get_radiation_direct(
-                    date.to_pydatetime(), self.altitude_deg
-                )
+                ] = get_radiation_direct(date.to_pydatetime(), self.altitude_deg)
 
             # Fill nulls in irradiance with 0
             self.weather_data = self.weather_data.replace(np.nan, 0)
