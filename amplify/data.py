@@ -23,7 +23,7 @@ class DataGenerator:
         weather_data_dir: str = None,
     ):
         """
-        Initialize the data generator.
+        Initializes the data generator class.
 
         Arguments:
             weather_features (list)  : weather features to keep on import (optional)
@@ -289,6 +289,11 @@ class DataGenerator:
 
 
 class DataSplit:
+    """
+    Splits data into series and then randomly splits those series
+    into training, validation, and training sets.
+    """
+
     def __init__(
         self,
         dataframe,
@@ -299,6 +304,18 @@ class DataSplit:
         series_length: int = 48,
         stride: int = 3,
     ):
+        """
+        Initializes the data splitting class.
+
+        Arguments:
+            dataframe           : a well formatted dataframe with features and two dependent variables as columns
+            train_split (float) : amount of the dataset used in training (optional)
+            val_split (float)   : amount of the dataset used in validation (optional)
+            test_split (float)  : amount of the dataset used in testing(optional)
+            shuffle (bool)      : wheather or not to randomly shuffle the series before splitting (optional)
+            series_length (int) : how many observations are in a series (optional)
+            stride (int)        : how many observations to stride over when building series (optional)
+        """
 
         self.dataframe = dataframe
         self.train_split = train_split
@@ -309,7 +326,12 @@ class DataSplit:
         self.stride = stride
 
     def _make_series(self, dataframe):
-        # Create 3D array of slices based on series_length and stride
+        """
+        Create 3D array of slices based on series_length and stride
+
+        Arguments:
+            dataframe           : a well formatted dataframe with features and two dependent variables as columns
+        """
 
         ### TODO add random sample to stride between 1 and 5
         self.data = dataframe
@@ -331,6 +353,10 @@ class DataSplit:
         return np.array(self.output)
 
     def _train_val_test_split(self):
+        """
+        Randomly splits series into training, validation, and training sets.
+        """
+
         # Create 3D array of time slices using make_array function
         self.data_array = self._make_series(self.dataframe)
 
@@ -357,6 +383,13 @@ class DataSplit:
         return self.train_ds, self.val_ds, self.test_ds
 
     def xy_splits(self, dataset):
+        """
+        Separates the sets of x matrixes and y column vectors
+
+        Arguments:
+            datset           : 3D numpy array with two trailing y columns
+        """
+
         self.dataset = dataset
 
         ## Remove last columns to make y vectors for the dataset
@@ -366,9 +399,17 @@ class DataSplit:
             self.dataset[:, :, -1],
         )
 
-        return self.x_ds, self.y_solar, self.y_usage
+        return (
+            self.x_ds,
+            np.expand_dims(self.y_solar, axis=2),
+            np.expand_dims(self.y_usage, axis=2),
+        )
 
     def split_data(self):
+        """
+        Splits dataset into a tuple of tuples
+        """
+
         # Run train_val_split_function
         self.train_ds, self.val_ds, self.test_ds = self._train_val_test_split()
 
