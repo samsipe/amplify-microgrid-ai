@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 from glob import glob
+import warnings
 
 from pysolar.solar import get_altitude
 from pysolar.radiation import get_radiation_direct
@@ -202,7 +203,8 @@ class DataGenerator:
         Return:
             weather_data (dataframe)
         """
-
+        warnings.filterwarnings('ignore')
+        
         try:
             self.weather_data = pd.read_csv(
                 self.weather_data_dir, header=0, low_memory=False
@@ -261,6 +263,9 @@ class DataGenerator:
         self.building_data = self._load_building_data()
         self.weather_data = self._load_weather_data()
 
+        # Add day of week to Weather Data
+        self.weather_data['day_of_week'] = self.weather_data.index.strftime('%w')
+        
         # Merge Building Solar Generation Y data to merged_data
         self.merged_data = self.weather_data.merge(
             self.building_data.solar["True Power (kW)"],
