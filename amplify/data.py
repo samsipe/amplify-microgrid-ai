@@ -72,9 +72,7 @@ class DataGenerator:
 
         # Set weather columns to keep
         self.weather_data_keep_columns = (
-            self.weather_features
-            if self.weather_features
-            else ["temp", "pressure", "humidity", "clouds_all"]
+            self.weather_features if self.weather_features else ["temp", "clouds_all"]
         )
 
         # Set building columns to keep
@@ -82,6 +80,7 @@ class DataGenerator:
             self.building_features
             if self.building_features
             else [
+                # TODO Remove everything but power
                 "True Power (kW)",
                 "Total Energy (kWh)",
                 "Reactive Energy (kVARh)",
@@ -400,16 +399,10 @@ class DataSplit:
         self.dataset = dataset
 
         ## Remove last columns to make y vectors for the dataset
-        self.x_ds, self.y_solar, self.y_usage = (
-            self.dataset[:, :, 0:-2],
-            self.dataset[:, :, -2],
-            self.dataset[:, :, -1],
-        )
 
         return (
-            self.x_ds,
-            np.expand_dims(self.y_solar, axis=2),
-            np.expand_dims(self.y_usage, axis=2),
+            self.dataset[:, :, :-2],
+            self.dataset[:, :, -2:],
         )
 
     def split_data(self):
