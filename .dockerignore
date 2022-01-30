@@ -130,13 +130,15 @@ dmypy.json
 
 # VS Code
 .vscode/
+.devcontainer/
 
 # MacOS
 .DS_Store
 
+# Git
+.git/
+
 # Amplify
 data/**
 **.csv
-
-# Git
-.git/
+notebooks/*
