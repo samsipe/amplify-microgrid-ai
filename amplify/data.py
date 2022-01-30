@@ -1,13 +1,13 @@
 import sys
-
-import pandas as pd
-import numpy as np
-from glob import glob
 import warnings
+from glob import glob
 
-from pysolar.solar import get_altitude, get_azimuth
-from pysolar.radiation import get_radiation_direct
+import numpy as np
+import pandas as pd
 from clearml import Dataset
+from pysolar.radiation import get_radiation_direct
+from pysolar.solar import get_altitude, get_azimuth
+
 
 # TODO: replace prints with logging
 class DataGenerator:
@@ -17,8 +17,8 @@ class DataGenerator:
 
     def __init__(
         self,
-        weather_features: list = None,
-        building_features: list = None,
+        weather_features: list = ["temp", "clouds_all"],
+        building_features: list = ["True Power (kW)"],
         building_data_dir: str = None,
         weather_data_dir: str = None,
     ):
@@ -70,29 +70,6 @@ class DataGenerator:
                 )
                 sys.exit(1)
 
-        # Set weather columns to keep
-        self.weather_data_keep_columns = (
-            self.weather_features if self.weather_features else ["temp", "clouds_all"]
-        )
-
-        # Set building columns to keep
-        self.building_data_keep_columns = (
-            self.building_features
-            if self.building_features
-            else [
-                # TODO Remove everything but power
-                "True Power (kW)",
-                "Total Energy (kWh)",
-                "Reactive Energy (kVARh)",
-                "Reactive Power (kVAR)",
-                "Apparent Power (kVA)",
-                "Apparent Energy (kVAh)",
-                "dPF",
-                "aPF",
-                "Current (A)",
-            ]
-        )
-
     def load_data(self):
         """
         Loads data for a specified building/weather data paths.
@@ -105,8 +82,8 @@ class DataGenerator:
         if (
             (self.weather_data_dir is not None)
             & (self.building_data_dir is not None)
-            & (self.weather_data_keep_columns is not None)
-            & (self.building_data_keep_columns is not None)
+            & (self.weather_features is not None)
+            & (self.building_features is not None)
         ):
             # With data directories set, return the retrieved/cleaned/merged data
             return self._daylight_savings()
@@ -119,79 +96,72 @@ class DataGenerator:
             building_data (dataframe)
         """
 
-        try:
-            self.building_data = pd.read_csv(
-                self.building_data_dir, header=None, low_memory=False
-            )
+        self.building_data = pd.read_csv(
+            self.building_data_dir, header=None, low_memory=False
+        )
 
-            # Forward fill the header name for each PowerScout
-            self.building_data.iloc[0] = self.building_data.T[0].fillna(method="ffill")
+        # Forward fill the header name for each PowerScout
+        self.building_data.iloc[0] = self.building_data.T[0].fillna(method="ffill")
 
-            # Rename the 'nan' block
-            self.building_data.loc[0, 0] = "Timestamp"
+        # Rename the 'nan' block
+        self.building_data.loc[0, 0] = "Timestamp"
 
-            # Create the multi-index
-            self.building_data.columns = [
-                list(self.building_data.iloc[0]),
-                list(self.building_data.iloc[1]),
-            ]
+        # Create the multi-index
+        self.building_data.columns = [
+            list(self.building_data.iloc[0]),
+            list(self.building_data.iloc[1]),
+        ]
 
-            # Drop the first two rows because they're just the column names, and any column with only nulls
-            self.building_data = self.building_data[2:]
+        # Drop the first two rows because they're just the column names, and any column with only nulls
+        self.building_data = self.building_data[2:]
 
-            # Convert timestamp column to datetime format
-            self.building_data.Timestamp = pd.to_datetime(
-                self.building_data.Timestamp.Timestamp,
-                infer_datetime_format=True,
-            )
+        # Convert timestamp column to datetime format
+        self.building_data.Timestamp = pd.to_datetime(
+            self.building_data.Timestamp.Timestamp,
+            infer_datetime_format=True,
+        )
 
-            # Set Timestamp column as index, set columns to type 'float', rename index
-            self.building_data = (
-                self.building_data.set_index([("Timestamp", "Timestamp")])
-                .replace("-", np.nan)
-                .astype(float)
-            )
-            self.building_data.index.rename("Timestamp", inplace=True)
+        # Set Timestamp column as index, set columns to type 'float', rename index
+        self.building_data = (
+            self.building_data.set_index([("Timestamp", "Timestamp")])
+            .replace("-", np.nan)
+            .astype(float)
+        )
+        self.building_data.index.rename("Timestamp", inplace=True)
 
-            # Set building_data to Eastern timezone and then convert to UTC
-            self.building_data = self.building_data.tz_localize(
-                "America/New_York", ambiguous=True
-            ).tz_convert("UTC")
+        # Set building_data to Eastern timezone and then convert to UTC
+        self.building_data = self.building_data.tz_localize(
+            "America/New_York", ambiguous=True
+        ).tz_convert("UTC")
 
-            # deduplicate index
-            self.building_data = self.building_data.drop_duplicates(keep="last")
+        # deduplicate index
+        self.building_data = self.building_data.drop_duplicates(keep="last")
 
-            # Drop any column or row with all nulls
-            self.building_data = self.building_data.dropna(how="all", axis=1).dropna(
-                how="all", axis=0
-            )
+        # Drop any column or row with all nulls
+        self.building_data = self.building_data.dropna(how="all", axis=1).dropna(
+            how="all", axis=0
+        )
 
-            # remove noise (zeros) from the building_data
-            self.building_data = self.building_data.replace(0, np.nan).fillna(
-                method="ffill"
-            )
+        # remove noise (zeros) from the building_data
+        self.building_data = self.building_data.replace(0, np.nan).fillna(
+            method="ffill"
+        )
 
-            # Slice to the two power systems we're monitoring and rename columns
-            # TODO: make the power systems vairable at some point
-            self.building_data = self.building_data[
-                ["PowerScout DPS126", "PowerScout DPS121"]
-            ].rename(
-                columns={"PowerScout DPS126": "solar", "PowerScout DPS121": "usage"}
-            )
+        # Slice to the two power systems we're monitoring and rename columns
+        # TODO: make the power systems vairable at some point
+        self.building_data = self.building_data[
+            ["PowerScout DPS126", "PowerScout DPS121"]
+        ].rename(columns={"PowerScout DPS126": "solar", "PowerScout DPS121": "usage"})
 
-            # Create our separate y-columns: solar pwr generated, buildling pwr used
-            idx = pd.IndexSlice
+        # Create our separate y-columns: solar pwr generated, buildling pwr used
+        idx = pd.IndexSlice
 
-            # Create DF with only Energy - keep just the last value (meter readings)
-            self.building_data = self.building_data.loc[
-                idx[:], idx[:, self.building_data_keep_columns]
-            ]
+        # Create DF with only Energy - keep just the last value (meter readings)
+        self.building_data = self.building_data.loc[
+            idx[:], idx[:, self.building_features]
+        ]
 
-            print("Info: Successfully loaded building data!")
-
-        except:
-            print("Error: Cannot load building data!")
-            sys.exit(1)
+        print("Info: Successfully loaded building data!")
 
         return self.building_data
 
@@ -204,57 +174,52 @@ class DataGenerator:
         """
         warnings.filterwarnings("ignore")
 
-        try:
-            self.weather_data = pd.read_csv(
-                self.weather_data_dir, header=0, low_memory=False
+        self.weather_data = pd.read_csv(
+            self.weather_data_dir, header=0, low_memory=False
+        )
+
+        #### pull lat/lon from weather data for irradiance
+        self.building_lat = self.weather_data.lat.iloc[0]
+        self.building_lon = self.weather_data.lon.iloc[0]
+
+        ## Clean up datetime, drop 2nd datetime column
+        # Convert from POSIX to ISO UTC time
+        self.weather_data.dt = pd.to_datetime(
+            self.weather_data.dt, unit="s", utc=True, infer_datetime_format=True
+        )
+
+        # Set date as index
+        self.weather_data = self.weather_data.set_index("dt")
+
+        # Drop 2nd datetime column that's not needed
+        self.weather_data = self.weather_data[self.weather_features]
+
+        # deduplicate index
+        self.weather_data = self.weather_data.drop_duplicates()
+
+        # Add Solar Irradiance
+        self.weather_data["azimuth"] = np.nan
+        self.weather_data["irradiance"] = np.nan
+        self.date_list = list(self.weather_data.index)
+        for date in self.date_list:
+            self.pydate = date.to_pydatetime()
+            # Calculate Solar Azimuth
+            self.weather_data.loc[date, "azimuth"] = get_azimuth(
+                self.building_lat, self.building_lon, self.pydate
+            )
+            # Calculate Solar Altitude
+            self.altitude_deg = get_altitude(
+                self.building_lat, self.building_lon, self.pydate
+            )
+            # Calculate Solar Irradiance
+            self.weather_data.loc[date, "irradiance"] = get_radiation_direct(
+                self.pydate, self.altitude_deg
             )
 
-            #### pull lat/lon from weather data for irradiance
-            self.building_lat = self.weather_data.lat.iloc[0]
-            self.building_lon = self.weather_data.lon.iloc[0]
+        # Fill nulls in irradiance with 0
+        self.weather_data = self.weather_data.replace(np.nan, 0)
 
-            ## Clean up datetime, drop 2nd datetime column
-            # Convert from POSIX to ISO UTC time
-            self.weather_data.dt = pd.to_datetime(
-                self.weather_data.dt, unit="s", utc=True, infer_datetime_format=True
-            )
-
-            # Set date as index
-            self.weather_data = self.weather_data.set_index("dt")
-
-            # Drop 2nd datetime column that's not needed
-            self.weather_data = self.weather_data[self.weather_data_keep_columns]
-
-            # deduplicate index
-            self.weather_data = self.weather_data.drop_duplicates()
-
-            # Add Solar Irradiance
-            self.weather_data["azimuth"] = np.nan
-            self.weather_data["irradiance"] = np.nan
-            self.date_list = list(self.weather_data.index)
-            for date in self.date_list:
-                # Calculate Solar Azimuth
-                self.weather_data.loc[date.to_pydatetime(), "azimuth"] = get_azimuth(
-                    self.building_lat, self.building_lon, date.to_pydatetime()
-                )
-                # Calculate Solar Altitude
-                self.altitude_deg = get_altitude(
-                    self.building_lat, self.building_lon, date.to_pydatetime()
-                )
-                # Calculate Solar Irradiance
-                self.weather_data.loc[
-                    date.to_pydatetime(), "irradiance"
-                ] = get_radiation_direct(date.to_pydatetime(), self.altitude_deg)
-
-            # Fill nulls in irradiance with 0
-            self.weather_data = self.weather_data.replace(np.nan, 0)
-
-            print("Info: Successfully loaded weather data!")
-
-        except:
-            print("Error: Cannot load weather data")
-            sys.exit(1)
-
+        print("Info: Successfully loaded weather data!")
         return self.weather_data
 
     def _daylight_savings(self):
@@ -273,26 +238,35 @@ class DataGenerator:
         self.weather_data["day_of_week"] = self.weather_data.index.strftime("%w")
 
         # Merge Building Solar Generation Y data to merged_data
-        self.merged_data = self.weather_data.merge(
-            self.building_data.solar["True Power (kW)"],
-            "outer",
-            left_index=True,
-            right_index=True,
+        self.merged_data = (
+            self.weather_data.merge(
+                self.building_data.solar,
+                "outer",
+                left_index=True,
+                right_index=True,
+            )
+            .fillna(method="ffill")
+            .dropna()
         )
-        self.merged_data = self.merged_data.fillna(method="ffill").dropna()
-        self.merged_data.rename(columns={"True Power (kW)": "solar"}, inplace=True)
+        for feature in self.building_features:
+            self.merged_data.rename(
+                columns={feature: str(feature) + " solar"}, inplace=True
+            )
 
         # Merge Building Usage Y data to merged_data
         self.merged_data = self.merged_data.merge(
-            self.building_data.usage["True Power (kW)"],
+            self.building_data.usage,
             "outer",
             left_index=True,
             right_index=True,
         ).fillna(method="ffill")
-        self.merged_data.rename(columns={"True Power (kW)": "usage"}, inplace=True)
+        for feature in self.building_features:
+            self.merged_data.rename(
+                columns={feature: str(feature) + " usage"}, inplace=True
+            )
 
+        print("Successfully merged Building and Weather Data")
         return self.merged_data
-
 
 class DataSplit:
     """
@@ -401,8 +375,8 @@ class DataSplit:
         ## Remove last columns to make y vectors for the dataset
 
         return (
-            self.dataset[:, :, :-2],
-            self.dataset[:, :, -2:],
+            self.dataset[:, :, :-2].astype("float32"),
+            self.dataset[:, :, -2:].astype("float32"),
         )
 
     def split_data(self):
@@ -414,9 +388,9 @@ class DataSplit:
         self.train_ds, self.val_ds, self.test_ds = self._train_val_test_split()
 
         ## split train, val, and test sets
-        self.train_split = self.xy_splits(self.train_ds.astype("float32"))
-        self.val_split = self.xy_splits(self.val_ds.astype("float32"))
-        self.test_split = self.xy_splits(self.test_ds.astype("float32"))
+        self.train_split = self.xy_splits(self.train_ds)
+        self.val_split = self.xy_splits(self.val_ds)
+        self.test_split = self.xy_splits(self.test_ds)
 
         # Return a tuple of tuples
         return (
