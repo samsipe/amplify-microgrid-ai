@@ -5,7 +5,7 @@ import numpy as np
 from glob import glob
 import warnings
 
-from pysolar.solar import get_altitude
+from pysolar.solar import get_altitude, get_azimuth
 from pysolar.radiation import get_radiation_direct
 from clearml import Dataset
 
@@ -230,12 +230,19 @@ class DataGenerator:
             self.weather_data = self.weather_data.drop_duplicates()
 
             # Add Solar Irradiance
+            self.weather_data["azimuth"] = np.nan
             self.weather_data["irradiance"] = np.nan
             self.date_list = list(self.weather_data.index)
             for date in self.date_list:
+                # Calculate Solar Azimuth
+                self.weather_data.loc[date.to_pydatetime(), "azimuth"] = get_azimuth(
+                    self.building_lat, self.building_lon, date.to_pydatetime()
+                )
+                # Calculate Solar Altitude
                 self.altitude_deg = get_altitude(
                     self.building_lat, self.building_lon, date.to_pydatetime()
                 )
+                # Calculate Solar Irradiance
                 self.weather_data.loc[
                     date.to_pydatetime(), "irradiance"
                 ] = get_radiation_direct(date.to_pydatetime(), self.altitude_deg)
@@ -365,7 +372,7 @@ class DataSplit:
 
         if self.shuffle:
             # Specify seed to always have the same split distribution between runs
-            self.rng = np.random.default_rng(seed=42)
+            self.rng = np.random.default_rng()
             # Shuffle the index numbers
             self.rng.shuffle(self.data_array, axis=0)
 
@@ -414,12 +421,16 @@ class DataSplit:
         self.train_ds, self.val_ds, self.test_ds = self._train_val_test_split()
 
         ## split train, val, and test sets
-        self.train_split = self.xy_splits(self.train_ds)
-        self.val_split = self.xy_splits(self.val_ds)
-        self.test_split = self.xy_splits(self.test_ds)
+        self.train_split = self.xy_splits(self.train_ds.astype("float32"))
+        self.val_split = self.xy_splits(self.val_ds.astype("float32"))
+        self.test_split = self.xy_splits(self.test_ds.astype("float32"))
 
         # Return a tuple of tuples
-        return (self.train_split, self.val_split, self.test_split)
+        return (
+            self.train_split,
+            self.val_split,
+            self.test_split,
+        )
 
         # train_split[0] -> features
         # train_split[1] -> solar
