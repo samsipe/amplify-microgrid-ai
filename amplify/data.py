@@ -264,18 +264,23 @@ class DataGenerator:
         for date in self.date_list:
             self.pydate = date.to_pydatetime()
             self.date = date.tz_localize(None)
+            
             # Calculate Solar Azimuth
             self.output_df.loc[self.date, "azimuth"] = get_azimuth(
                 self.building_lat, self.building_lon, self.pydate
             )
+            
             # Calculate Solar Altitude
             self.altitude_deg = get_altitude(
                 self.building_lat, self.building_lon, self.pydate
             )
+            
             # Calculate Solar Irradiance
             self.output_df.loc[self.date, "irradiance"] = get_radiation_direct(
                 self.pydate, self.altitude_deg
             )
+        
+        self.output_df = self.oup
 
         print("Successfully added Azimuth and Irradiance data!")
         return self.output_df
