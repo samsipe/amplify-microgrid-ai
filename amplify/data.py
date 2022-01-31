@@ -75,7 +75,7 @@ class DataGenerator:
         Loads data for a specified building/weather data paths.
 
         Return:
-            merged_data (dataframe)    : weather and building data in one dataframe
+            pysolar_features (dataframe)    : weather, solar, and building data in one dataframe
         """
 
         # Now actually load the data. 1st check that directories are set
@@ -87,7 +87,7 @@ class DataGenerator:
         ):
             # With data directories set, return the retrieved/cleaned/merged data
             # return self._merge_building_weather()
-            return self._add_pysolar_features()
+            return self._pysolar_features()
 
     def _load_building_data(self):
         """
@@ -252,7 +252,8 @@ class DataGenerator:
         print("Successfully merged Building and Weather data!")
         return self.merged_data, self.building_lat, self.building_lon
 
-    def _add_pysolar_features(self):
+    def _pysolar_features(self):
+        """ """
         (
             self.output_df,
             self.building_lat,
@@ -264,39 +265,42 @@ class DataGenerator:
         for date in self.date_list:
             self.pydate = date.to_pydatetime()
             self.date = date.tz_localize(None)
-            
+
             # Calculate Solar Azimuth
             self.output_df.loc[self.date, "azimuth"] = get_azimuth(
                 self.building_lat, self.building_lon, self.pydate
             )
-            
+
             # Calculate Solar Altitude
             self.altitude_deg = get_altitude(
                 self.building_lat, self.building_lon, self.pydate
             )
-            
+
             # Calculate Solar Irradiance
             self.output_df.loc[self.date, "irradiance"] = get_radiation_direct(
                 self.pydate, self.altitude_deg
             )
-        
+
         self.output_df = self.output_df.replace(np.nan, 0)
 
         print("Successfully added Azimuth and Irradiance data!")
         return self.output_df.round(2)
 
+
 class DataSplit:
     """
     Splits data into series and then randomly splits those series
     into training, validation, and training sets.
+
+    Return
     """
 
     def __init__(
         self,
         dataframe,
-        train_split: float = 0.8,
-        val_split: float = 0.1,
-        test_split: float = 0.1,
+        train_pct: float = 0.8,
+        val_pct: float = 0.1,
+        test_pct: float = 0.1,
         shuffle: bool = True,
         series_length: int = 48,
         stride: int = 3,
@@ -315,23 +319,24 @@ class DataSplit:
         """
 
         self.dataframe = dataframe
-        self.train_split = train_split
-        self.val_split = val_split
-        self.test_split = test_split
+        self.train_pct = train_pct
+        self.val_pct = val_pct
+        self.test_pct = test_pct
         self.shuffle = shuffle
         self.series_length = series_length
         self.stride = stride
+        assert (self.train_pct + self.test_pct + self.val_pct) == 1
 
-    def _make_series(self, dataframe):
+    def _make_series(self, input_df):
         """
         Create 3D array of slices based on series_length and stride
 
         Arguments:
-            dataframe           : a well formatted dataframe with features and two dependent variables as columns
+            input_df           : a well formatted dataframe with features and two dependent variables as columns
         """
 
         ### TODO add random sample to stride between 1 and 5
-        self.data = dataframe
+        self.data = input_df.copy()
         self.start_index = self.series_length
         self.end_index = len(self.data)
 
@@ -349,45 +354,35 @@ class DataSplit:
         # Return as array
         return np.array(self.output)
 
-    def _train_val_test_split(self):
+    def _train_val_test_split(self, input_df):
         """
-        Randomly splits series into training, validation, and training sets.
+        Splits dataset into train, val, test sets with no overlap
+
+        Arguments:
+            input_df           : a well formatted dataframe with features and two dependent variables as columns
         """
+        self.dataframe = input_df.copy()
 
-        # Create 3D array of time slices using make_array function
-        self.data_array = self._make_series(self.dataframe)
+        # Set indices to split on
+        self.train_ind = int(self.dataframe.shape[0] * self.train_pct)
+        self.test_ind = -int(self.dataframe.shape[0] * self.test_pct)
 
-        # Verify splits combine to equal 1
-        assert (self.train_split + self.test_split + self.val_split) == 1
+        # Split dataset into 3 parts based on desired percents
+        self.train_split = self.dataframe.iloc[: self.train_ind]
+        self.val_split = self.dataframe.iloc[self.train_ind : self.test_ind]
+        self.test_split = self.dataframe.iloc[self.test_ind :]
 
-        if self.shuffle:
-            # Specify seed to always have the same split distribution between runs
-            self.rng = np.random.default_rng()
-            # Shuffle the index numbers
-            self.rng.shuffle(self.data_array, axis=0)
+        return self.train_split, self.val_split, self.test_split
 
-        # Split the shuffled index numbers into the 3 bins - train, val, test
-        self.indices_or_sections = [
-            int(self.train_split * self.data_array.shape[0]),
-            int((1 - self.test_split) * self.data_array.shape[0]),
-        ]
-
-        # Perform the split based on shuffled index using Numpy split
-        self.train_ds, self.val_ds, self.test_ds = np.split(
-            self.data_array, self.indices_or_sections
-        )
-
-        return self.train_ds, self.val_ds, self.test_ds
-
-    def xy_splits(self, dataset):
+    def _xy_splits(self, input_df):
         """
         Separates the sets of x matrixes and y column vectors
 
         Arguments:
-            datset           : 3D numpy array with two trailing y columns
+            input_df           : 3D numpy array with two trailing y columns
         """
 
-        self.dataset = dataset
+        self.dataset = input_df.copy()
 
         ## Remove last columns to make y vectors for the dataset
 
@@ -398,18 +393,23 @@ class DataSplit:
 
     def split_data(self):
         """
-        Splits dataset into a tuple of tuples
+        Splits dataset into a tuple of tuples - (x_vals, y_vals)
         """
 
-        # Run train_val_split_function
-        self.train_ds, self.val_ds, self.test_ds = self._train_val_test_split()
+        # Convert each df to a series
+        self.output_list = ["train", "val", "test"]
+        for i, df in enumerate(self._train_val_test_split(self.dataframe)):
+            self.output_list[i] = self._make_series(df)
 
-        ## split train, val, and test sets
-        self.train_split = self.xy_splits(self.train_ds)
-        self.val_split = self.xy_splits(self.val_ds)
-        self.test_split = self.xy_splits(self.test_ds)
+        ## split x and y columns from train, val, and test datasets
+        self.train_split = self._xy_splits(self.output_list[0])
+        self.val_split = self._xy_splits(self.output_list[1])
+        self.test_split = self._xy_splits(self.output_list[2])
 
         # Return a tuple of tuples
+        print(
+            "Successfully split data into Train(x, y), Val(x, y), and Test(x, y) tuples!"
+        )
         return (
             self.train_split,
             self.val_split,
