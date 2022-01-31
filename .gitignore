@@ -138,6 +138,7 @@ dmypy.json
 # Amplify
 data/**
 **.csv
+logs/*
 models/*
 **.hdf5
 notebooks/*
