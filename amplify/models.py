@@ -14,8 +14,6 @@ from matplotlib import pyplot
 from keras.layers import Bidirectional
 from keras.layers import TimeDistributed
 
-from amplify.imodel import IModel
-
 class IModel:
     """
     Interface file for any model
