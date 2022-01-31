@@ -139,4 +139,4 @@ dmypy.json
 data/**
 **.csv
 notebooks/*
-!notebooks/**.ipnyb
+!notebooks/**.ipynb
