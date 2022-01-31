@@ -280,10 +280,10 @@ class DataGenerator:
                 self.pydate, self.altitude_deg
             )
         
-        self.output_df = self.oup
+        self.output_df = self.output_df.replace(np.nan, 0)
 
         print("Successfully added Azimuth and Irradiance data!")
-        return self.output_df
+        return self.output_df.round(2)
 
 class DataSplit:
     """
