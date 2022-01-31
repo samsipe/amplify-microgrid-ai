@@ -253,7 +253,12 @@ class DataGenerator:
         return self.merged_data, self.building_lat, self.building_lon
 
     def _pysolar_features(self):
-        """ """
+        """
+        Adds irradiance and azimuth features to the merged weather and building dataset
+
+        Return:
+            weather, solar, and building data in one dataframe
+        """
         (
             self.output_df,
             self.building_lat,
@@ -292,7 +297,8 @@ class DataSplit:
     Splits data into series and then randomly splits those series
     into training, validation, and training sets.
 
-    Return
+    Return:
+        split_data (tuple): a tuple of tuples containing ((train_x, train_y), (val_x, val_y), (test_x, test_y))
     """
 
     def __init__(
@@ -301,7 +307,6 @@ class DataSplit:
         train_pct: float = 0.8,
         val_pct: float = 0.1,
         test_pct: float = 0.1,
-        shuffle: bool = True,
         series_length: int = 48,
         stride: int = 3,
     ):
@@ -310,9 +315,9 @@ class DataSplit:
 
         Arguments:
             dataframe           : a well formatted dataframe with features and two dependent variables as columns
-            train_split (float) : amount of the dataset used in training (optional)
-            val_split (float)   : amount of the dataset used in validation (optional)
-            test_split (float)  : amount of the dataset used in testing(optional)
+            train_pct (float) : amount of the dataset used in training (optional)
+            val_pct (float)   : amount of the dataset used in validation (optional)
+            test_pct (float)  : amount of the dataset used in testing(optional)
             shuffle (bool)      : wheather or not to randomly shuffle the series before splitting (optional)
             series_length (int) : how many observations are in a series (optional)
             stride (int)        : how many observations to stride over when building series (optional)
@@ -322,9 +327,9 @@ class DataSplit:
         self.train_pct = train_pct
         self.val_pct = val_pct
         self.test_pct = test_pct
-        self.shuffle = shuffle
         self.series_length = series_length
         self.stride = stride
+
         assert (self.train_pct + self.test_pct + self.val_pct) == 1
 
     def _make_series(self, input_df):
@@ -333,6 +338,9 @@ class DataSplit:
 
         Arguments:
             input_df           : a well formatted dataframe with features and two dependent variables as columns
+
+        Return:
+            a 3D numpy array with each slice containing a series length of hours worth of data
         """
 
         ### TODO add random sample to stride between 1 and 5
@@ -360,14 +368,17 @@ class DataSplit:
 
         Arguments:
             input_df           : a well formatted dataframe with features and two dependent variables as columns
+
+        Return:
+            a tuple of dataframes: (train, val, test) of length determined by train_pct, val_pct, and test_pct
         """
         self.dataframe = input_df.copy()
 
-        # Set indices to split on
+        # Set indices to split on default or specified percents
         self.train_ind = int(self.dataframe.shape[0] * self.train_pct)
         self.test_ind = -int(self.dataframe.shape[0] * self.test_pct)
 
-        # Split dataset into 3 parts based on desired percents
+        # Split dataset into 3 parts using indices
         self.train_split = self.dataframe.iloc[: self.train_ind]
         self.val_split = self.dataframe.iloc[self.train_ind : self.test_ind]
         self.test_split = self.dataframe.iloc[self.test_ind :]
@@ -380,6 +391,9 @@ class DataSplit:
 
         Arguments:
             input_df           : 3D numpy array with two trailing y columns
+
+        Return:
+            a tuple of numpy arrays: (x, y)
         """
 
         self.dataset = input_df.copy()
@@ -394,6 +408,9 @@ class DataSplit:
     def split_data(self):
         """
         Splits dataset into a tuple of tuples - (x_vals, y_vals)
+
+        return:
+            A tuple of tuples - (train_x, train_y), (val_x, val_y), (test_x, test_y)
         """
 
         # Convert each df to a series
@@ -408,7 +425,7 @@ class DataSplit:
 
         # Return a tuple of tuples
         print(
-            "Successfully split data into Train(x, y), Val(x, y), and Test(x, y) tuples!"
+            "Successfully split data into (train_x, train_y), (val_x, val_y), (test_x, test_y) tuples!"
         )
         return (
             self.train_split,
