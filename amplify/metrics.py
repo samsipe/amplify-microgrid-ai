@@ -103,10 +103,13 @@ class DataEval:
         # [2] plot history
         self._PlotHistory()
 
-        # [3] plot error graphs
+        # [3] plot distribution
+        self._PlotDistribution()
+
+        # [4] plot error graphs
         self._PlotError()
 
-        # [4] plot N random plots
+        # [5] plot N random plots
         self.PlotRandomPlots(num_plot=5)
 
     def _PlotHistory(self):
@@ -132,48 +135,14 @@ class DataEval:
                 metric_list[raw_metric] = [raw_metric]
 
         for key in metric_list:
-            plt.figure(f"Model: {self.model_name}")
-            plt.title(f"Plot of {key}")
+            plt.figure(figsize=(20, 10))
+            plt.title(f"Model: {self.model_name} | Plot of {key}")
             for m in metric_list[key]:
                 plt.plot(self.history.history[m])
             plt.ylabel(f"{key}")
             plt.xlabel('epoch')
             plt.legend(metric_list[key], loc='upper left')
             plt.show()
-
-        ## summarize history for accuracy
-        # if metric == "root_mean_squared_error":
-        #    plt.plot(history.history['root_mean_squared_error'])
-        #    plt.plot(history.history['val_root_mean_squared_error'])
-        #    plt.title('model RMSE')
-        #    plt.ylabel('RMSE')
-        #    plt.xlabel('epoch')
-        #    plt.legend(['train', 'test'], loc='upper left')
-        #    plt.show()
-        # elif metric == "mean_absolute_percentage_error":
-        #    plt.plot(history.history["mean_absolute_percentage_error"])
-        #    plt.plot(history.history["val_mean_absolute_percentage_error"])
-        #    plt.title('model MAPE')
-        #    plt.ylabel('MAPE')
-        #    plt.xlabel('epoch')
-        #    plt.legend(['train', 'test'], loc='upper left')
-        #    plt.show()
-        # elif metric == "mean_absolute_error":
-        #    plt.plot(history.history["mean_absolute_error"])
-        #    plt.plot(history.history["val_mean_absolute_error"])
-        #    plt.title('model MAE')
-        #    plt.ylabel('MAE')
-        #    plt.xlabel('epoch')
-        #    plt.legend(['train', 'test'], loc='upper left')
-        #    plt.show()
-        ## summarize history for loss
-        # plt.plot(history.history['loss'])
-        # plt.plot(history.history['val_loss'])
-        # plt.title('model loss')
-        # plt.ylabel('loss')
-        # plt.xlabel('epoch')
-        # plt.legend(['train', 'test'], loc='upper left')
-        # plt.show()
 
     def _PlotDistribution(self):
         """
@@ -182,8 +151,8 @@ class DataEval:
         # TODO: make better checks
 
         # [1] Y Distribution
-        plt.figure(name=f"Model: {self.model_name}", figsize=(20, 10))
-        plt.title('Y distribution')
+        plt.figure(figsize=(20, 10))
+        plt.title(f"Model: {self.model_name} | Y distribution")
         for observation in range(self.y_test.shape[0]):
             plt.plot(self.y_test[observation])
         plt.ylabel("kW")
@@ -191,8 +160,8 @@ class DataEval:
         plt.show()
 
         # [2] Y_Pred Distribution
-        plt.figure(name=f"Model: {self.model_name}", figsize=(20, 10))
-        plt.title('Y_pred distribution')
+        plt.figure(figsize=(20, 10))
+        plt.title(f"Model: {self.model_name} | Y_pred distribution")
         for observation in range(self.y_pred.shape[0]):
             plt.plot(self.y_pred[observation])
         plt.ylabel("kW")
@@ -205,9 +174,8 @@ class DataEval:
         """
         # TODO: make better checks
 
-        plt.figure(name=f"Model: {self.model_name}", figsize=(20, 10))
-        plt.title('Prediction Mean Absolute Prediction Error')
-        # y_mae = keras.losses.mean_absolute_error(y_actual, y_pred)
+        plt.figure(figsize=(20, 10))
+        plt.title(f"Model: {self.model_name} | Prediction mean_absolute_percentage_error")
         y_mape_0 = CalcMAPE(self.y_test, self.y_pred, axis=0)
         y_mape_1 = CalcMAPE(self.y_test, self.y_pred, axis=1)
         plt.plot(y_mape_0)
@@ -217,9 +185,8 @@ class DataEval:
         plt.legend(['mape_by_hour', 'mape_by_observation'], loc='upper left')
         plt.show()
 
-        plt.figure(name=f"Model: {self.model_name}", figsize=(20, 10))
-        plt.title('Prediction Mean Absolute Percentage Error')
-        # y_mape = keras.losses.mean_absolute_percentage_error(y_actual, y_pred)
+        plt.figure(figsize=(20, 10))
+        plt.title(f"Model: {self.model_name} | Prediction mean_absolute_error")
         y_mae_0 = CalcMAE(self.y_test, self.y_pred, axis=0)
         y_mae_1 = CalcMAE(self.y_test, self.y_pred, axis=1)
         plt.plot(y_mae_0)
@@ -241,9 +208,9 @@ class DataEval:
         assert self.model
 
         for _i in range(num_plot):
-            plt.figure(name=f"Model: {self.model_name}", figsize=(20, 10))
+            plt.figure(figsize=(20, 10))
             x = np.random.default_rng().integers(0, self.y_pred.shape[0])
-            plt.title(f'Prediction, Observation #{x}')
+            plt.title(f"Model: {self.model_name} | Prediction, Observation #{x}")
             plt.plot(self.y_pred[x])
             plt.plot(self.y_test[x])
             plt.ylabel('kW')
