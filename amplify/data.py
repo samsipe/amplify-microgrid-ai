@@ -86,7 +86,8 @@ class DataGenerator:
             & (self.building_features is not None)
         ):
             # With data directories set, return the retrieved/cleaned/merged data
-            return self._daylight_savings()
+            # return self._merge_building_weather()
+            return self._add_pysolar_features()
 
     def _load_building_data(self):
         """
@@ -161,7 +162,7 @@ class DataGenerator:
             idx[:], idx[:, self.building_features]
         ]
 
-        print("Info: Successfully loaded building data!")
+        print("Info: Successfully loaded Building data!")
 
         return self.building_data
 
@@ -197,32 +198,15 @@ class DataGenerator:
         # deduplicate index
         self.weather_data = self.weather_data.drop_duplicates()
 
-        # Add Solar Irradiance
-        self.weather_data["azimuth"] = np.nan
-        self.weather_data["irradiance"] = np.nan
-        self.date_list = list(self.weather_data.index)
-        for date in self.date_list:
-            self.pydate = date.to_pydatetime()
-            # Calculate Solar Azimuth
-            self.weather_data.loc[date, "azimuth"] = get_azimuth(
-                self.building_lat, self.building_lon, self.pydate
-            )
-            # Calculate Solar Altitude
-            self.altitude_deg = get_altitude(
-                self.building_lat, self.building_lon, self.pydate
-            )
-            # Calculate Solar Irradiance
-            self.weather_data.loc[date, "irradiance"] = get_radiation_direct(
-                self.pydate, self.altitude_deg
-            )
+        self.weather_data[["azimuth", "irradiance"]] = np.nan
 
-        # Fill nulls in irradiance with 0
+        # Fill nulls in irradiance and azimuth with 0
         self.weather_data = self.weather_data.replace(np.nan, 0)
 
-        print("Info: Successfully loaded weather data!")
+        print("Info: Successfully loaded Weather data!")
         return self.weather_data
 
-    def _daylight_savings(self):
+    def _merge_building_weather(self):
         """
         With loaded weather data and building data,
         match indexes and adjust for daylight savings.
@@ -265,8 +249,36 @@ class DataGenerator:
                 columns={feature: str(feature) + " usage"}, inplace=True
             )
 
-        print("Successfully merged Building and Weather Data")
-        return self.merged_data
+        print("Successfully merged Building and Weather data!")
+        return self.merged_data, self.building_lat, self.building_lon
+
+    def _add_pysolar_features(self):
+        (
+            self.output_df,
+            self.building_lat,
+            self.building_lon,
+        ) = self._merge_building_weather()
+
+        # Add Solar Irradiance
+        self.date_list = list(self.output_df.index)
+        for date in self.date_list:
+            self.pydate = date.to_pydatetime()
+            self.date = date.tz_localize(None)
+            # Calculate Solar Azimuth
+            self.output_df.loc[self.date, "azimuth"] = get_azimuth(
+                self.building_lat, self.building_lon, self.pydate
+            )
+            # Calculate Solar Altitude
+            self.altitude_deg = get_altitude(
+                self.building_lat, self.building_lon, self.pydate
+            )
+            # Calculate Solar Irradiance
+            self.output_df.loc[self.date, "irradiance"] = get_radiation_direct(
+                self.pydate, self.altitude_deg
+            )
+
+        print("Successfully added Azimuth and Irradiance data!")
+        return self.output_df
 
 class DataSplit:
     """
