@@ -336,7 +336,7 @@ class DataSplit:
         """
         Create 3D array of slices based on series_length and stride
 
-        Arguments:
+        Argument:
             input_df           : a well formatted dataframe with features and two dependent variables as columns
 
         Return:
@@ -366,7 +366,7 @@ class DataSplit:
         """
         Splits dataset into train, val, test sets with no overlap
 
-        Arguments:
+        Argument:
             input_df           : a well formatted dataframe with features and two dependent variables as columns
 
         Return:
@@ -389,7 +389,7 @@ class DataSplit:
         """
         Separates the sets of x matrixes and y column vectors
 
-        Arguments:
+        Argument:
             input_df           : 3D numpy array with two trailing y columns
 
         Return:
@@ -409,30 +409,41 @@ class DataSplit:
         """
         Splits dataset into a tuple of tuples - (x_vals, y_vals)
 
-        return:
-            A tuple of tuples - (train_x, train_y), (val_x, val_y), (test_x, test_y)
+        Return:
+            A tuple of tuples - (train_x, train_y), (val_x, val_y), (test_x, test_y), (norm_layer)
         """
-
-        # Convert each df to a series
+        
+        # Run the dataframe through the splitter to create train, val, and test DFs
+        self.pre_split = self._train_val_test_split(self.dataframe)
+        
+        # Drop Y's and convert to float32 to prepare the training data for normalization
+        self.training_pre_split = self.pre_split[0].iloc[:, :-2].astype("float32")
+        
+        # Normalize training data
+        self.norm_layer = Normalization(axis=-1)
+        self.norm_layer.adapt(self.training_pre_split)
+        
+        # Convert each df to a sequence of length "series_length"
         self.output_list = ["train", "val", "test"]
-        for i, df in enumerate(self._train_val_test_split(self.dataframe)):
+        for i, df in enumerate(self.pre_split):
             self.output_list[i] = self._make_series(df)
 
-        ## split x and y columns from train, val, and test datasets
+        ## split x and y columns from train, val, and test sequenced datasets
         self.train_split = self._xy_splits(self.output_list[0])
         self.val_split = self._xy_splits(self.output_list[1])
         self.test_split = self._xy_splits(self.output_list[2])
-
+        
         # Return a tuple of tuples
         print(
-            "Successfully split data into (train_x, train_y), (val_x, val_y), (test_x, test_y) tuples!"
+            "Successfully split data into (train_x, train_y), (val_x, val_y), (test_x, test_y), (norm_layer)!"
         )
         return (
             self.train_split,
             self.val_split,
             self.test_split,
+            self.norm_layer,
         )
-
+                
         # train_split[0] -> features
         # train_split[1] -> solar
         # train_split[2] -> usage
