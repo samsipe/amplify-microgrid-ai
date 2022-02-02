@@ -198,7 +198,7 @@ class DataGenerator:
         # deduplicate index
         self.weather_data = self.weather_data.drop_duplicates()
 
-        self.weather_data[["azimuth", "irradiance"]] = np.nan
+        self.weather_data[["azimuth", "irradiance", "day_of_week"]] = np.nan
 
         # Fill nulls in irradiance and azimuth with 0
         self.weather_data = self.weather_data.replace(np.nan, 0)
@@ -217,9 +217,6 @@ class DataGenerator:
 
         self.building_data = self._load_building_data()
         self.weather_data = self._load_weather_data()
-
-        # Add day of week to Weather Data
-        self.weather_data["day_of_week"] = self.weather_data.index.strftime("%w")
 
         # Merge Building Solar Generation Y data to merged_data
         self.merged_data = (
@@ -249,6 +246,9 @@ class DataGenerator:
                 columns={feature: str(feature) + " usage"}, inplace=True
             )
 
+        # Add day of week to Weather Data
+        self.merged_data.day_of_week = self.merged_data.index.strftime("%w")
+            
         print("Successfully merged Building and Weather data!")
         return self.merged_data, self.building_lat, self.building_lon
 
