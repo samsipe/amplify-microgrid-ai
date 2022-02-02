@@ -4,6 +4,7 @@ from glob import glob
 
 import numpy as np
 import pandas as pd
+
 from clearml import Dataset
 from pysolar.radiation import get_radiation_direct
 from pysolar.solar import get_altitude, get_azimuth
@@ -23,6 +24,7 @@ class DataGenerator:
         building_features: list = ["True Power (kW)"],
         building_data_dir: str = None,
         weather_data_dir: str = None,
+        cyclical_features: list = ["azimuth", "day_of_week"],
     ):
         """
         Initializes the data generator class.
@@ -32,12 +34,14 @@ class DataGenerator:
             building_features (list) : building features to keep on import (optional)
             building_data_dir (str)  : location of local .csv of weather data (optional)
             weather_data_dir (str)   : location of local .csv of  building data (optional)
+            cyclical_features (list) : columns to convert to sin/cos waveform (optional)
         """
 
         self.weather_features = weather_features
         self.building_features = building_features
         self.building_data_dir = building_data_dir
         self.weather_data_dir = weather_data_dir
+        self.cyclical_features = cyclical_features
 
         # Data
         self.building_data: pd.DataFrame = None  # Building data
@@ -77,7 +81,7 @@ class DataGenerator:
         Loads data for a specified building/weather data paths.
 
         Return:
-            pysolar_features (dataframe)    : weather, solar, and building data in one dataframe
+            output_df (dataframe)    : weather, solar, and building data in one dataframe
         """
 
         # Now actually load the data. 1st check that directories are set
@@ -88,8 +92,7 @@ class DataGenerator:
             & (self.building_features is not None)
         ):
             # With data directories set, return the retrieved/cleaned/merged data
-            # return self._merge_building_weather()
-            return self._pysolar_features()
+            return self._additional_features()
 
     def _load_building_data(self):
         """
@@ -197,10 +200,16 @@ class DataGenerator:
         # Drop 2nd datetime column that's not needed
         self.weather_data = self.weather_data[self.weather_features]
 
-        # deduplicate index
+        # Deduplicate index
         self.weather_data = self.weather_data.drop_duplicates()
 
-        self.weather_data[["azimuth", "irradiance", "day_of_week", "day_of_week_cos", "azimuth_cos"]] = np.nan
+        # Create columns to capture data to be added after merge
+        self.weather_data[["azimuth", "irradiance", "day_of_week"]] = np.nan
+
+        # Create columns for capturing cyclical feature conversions
+        for feature in self.cyclical_features:
+            self.feat_sin, self.feat_cos = feature + "_sin", feature + "_cos"
+            self.weather_data[[self.feat_sin, self.feat_cos]] = np.nan
 
         # Fill nulls in irradiance and azimuth with 0
         self.weather_data = self.weather_data.replace(np.nan, 0)
@@ -248,13 +257,10 @@ class DataGenerator:
                 columns={feature: str(feature) + " usage"}, inplace=True
             )
 
-        # Add day of week to Weather Data
-        self.merged_data.day_of_week = self.merged_data.index.strftime("%w")
-
         print("Info: Successfully merged Building and Weather data!")
         return self.merged_data, self.building_lat, self.building_lon
 
-    def _pysolar_features(self):
+    def _additional_features(self):
         """
         Adds irradiance and azimuth features to the merged weather and building dataset
 
@@ -292,6 +298,34 @@ class DataGenerator:
         self.output_df = self.output_df.replace(np.nan, 0)
 
         print("Info: Successfully added Azimuth and Irradiance data!")
+        print("Info: Converting Cyclical Features.")
+
+        # Add day of week to Weather Data (+1 is for correct spread in next step)
+        self.output_df.day_of_week = self.output_df.index.strftime("%w").astype(int) + 1
+
+        # Add cyclical functions for columns identified in 'cyclical_features' argument
+        for feature in self.cyclical_features:
+            # Set column names to capture new values
+            self.feat_sin, self.feat_cos = feature + "_sin", feature + "_cos"
+
+            # Calculate spread of values in column
+            self.feat_spread = (
+                int(self.output_df[feature].max()) - int(self.output_df[feature].min())
+            ) + 1
+
+            # Convert to sinusoidal and cosinal values
+            self.output_df[self.feat_sin] = np.sin(
+                2 * np.pi * self.output_df[feature].astype(float) / self.feat_spread
+            )
+            self.output_df[self.feat_cos] = np.cos(
+                2 * np.pi * self.output_df[feature].astype(float) / self.feat_spread
+            )
+
+            # Clean up dataframe by dropping original feature column
+            self.output_df.drop([feature], axis=1, inplace=True)
+
+        print("Info: Successfully converted cyclical features! Data is ready!")
+
         return self.output_df.round(2)
 
 
@@ -318,9 +352,9 @@ class DataSplit:
 
         Arguments:
             dataframe           : a well formatted dataframe with features and two dependent variables as columns
-            train_pct (float) : amount of the dataset used in training (optional)
-            val_pct (float)   : amount of the dataset used in validation (optional)
-            test_pct (float)  : amount of the dataset used in testing(optional)
+            train_pct (float)   : amount of the dataset used in training (optional)
+            val_pct (float)     : amount of the dataset used in validation (optional)
+            test_pct (float)    : amount of the dataset used in testing(optional)
             shuffle (bool)      : wheather or not to randomly shuffle the series before splitting (optional)
             series_length (int) : how many observations are in a series (optional)
             stride (int)        : how many observations to stride over when building series (optional)
@@ -418,13 +452,6 @@ class DataSplit:
 
         # Run the dataframe through the splitter to create train, val, and test DFs
         self.pre_split = self._train_val_test_split(self.dataframe)
-        
-        ### Add cyclical functions for azimuth and day_of_week
-        self.pre_split.day_of_week = np.sin(2*np.pi*self.pre_split.day_of_week/7)
-        self.pre_split.day_of_week_cos = np.cos(2*np.pi*self.pre_split.day_of_week/7)
-
-        self.pre_split.azimuth = np.sin(2*np.pi*self.pre_split.azimuth/360)
-        self.pre_split.azimuth_cos = np.cos(2*np.pi*self.pre_split.azimuth/360)
 
         # Drop Y's and convert to float32 to prepare the training data for normalization
         self.training_pre_split = self.pre_split[0].iloc[:, :-2].astype("float32")
