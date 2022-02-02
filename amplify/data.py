@@ -200,7 +200,7 @@ class DataGenerator:
         # deduplicate index
         self.weather_data = self.weather_data.drop_duplicates()
 
-        self.weather_data[["azimuth", "irradiance", "day_of_week"]] = np.nan
+        self.weather_data[["azimuth", "irradiance", "day_of_week", "day_of_week_cos", "azimuth_cos"]] = np.nan
 
         # Fill nulls in irradiance and azimuth with 0
         self.weather_data = self.weather_data.replace(np.nan, 0)
@@ -251,7 +251,7 @@ class DataGenerator:
         # Add day of week to Weather Data
         self.merged_data.day_of_week = self.merged_data.index.strftime("%w")
 
-        print("Successfully merged Building and Weather data!")
+        print("Info: Successfully merged Building and Weather data!")
         return self.merged_data, self.building_lat, self.building_lon
 
     def _pysolar_features(self):
@@ -267,6 +267,7 @@ class DataGenerator:
             self.building_lon,
         ) = self._merge_building_weather()
 
+        print("Info: Calculating Azimuth and Irradiance data, this may take awhile...")
         # Add Solar Irradiance
         self.date_list = list(self.output_df.index)
         for date in self.date_list:
@@ -290,7 +291,7 @@ class DataGenerator:
 
         self.output_df = self.output_df.replace(np.nan, 0)
 
-        print("Successfully added Azimuth and Irradiance data!")
+        print("Info: Successfully added Azimuth and Irradiance data!")
         return self.output_df.round(2)
 
 
@@ -417,6 +418,13 @@ class DataSplit:
 
         # Run the dataframe through the splitter to create train, val, and test DFs
         self.pre_split = self._train_val_test_split(self.dataframe)
+        
+        ### Add cyclical functions for azimuth and day_of_week
+        self.pre_split.day_of_week = np.sin(2*np.pi*self.pre_split.day_of_week/7)
+        self.pre_split.day_of_week_cos = np.cos(2*np.pi*self.pre_split.day_of_week/7)
+
+        self.pre_split.azimuth = np.sin(2*np.pi*self.pre_split.azimuth/360)
+        self.pre_split.azimuth_cos = np.cos(2*np.pi*self.pre_split.azimuth/360)
 
         # Drop Y's and convert to float32 to prepare the training data for normalization
         self.training_pre_split = self.pre_split[0].iloc[:, :-2].astype("float32")
@@ -437,7 +445,7 @@ class DataSplit:
 
         # Return a tuple of tuples
         print(
-            "Successfully split data into (train_x, train_y), (val_x, val_y), (test_x, test_y), (norm_layer)!"
+            "Info: Successfully split data into (train_x, train_y), (val_x, val_y), (test_x, test_y), (norm_layer)!"
         )
         return (
             self.train_split,
