@@ -4,11 +4,9 @@ from glob import glob
 
 import numpy as np
 import pandas as pd
-
 from clearml import Dataset
 from pysolar.radiation import get_radiation_direct
 from pysolar.solar import get_altitude, get_azimuth
-
 from tensorflow.keras.layers import Normalization
 
 
@@ -401,7 +399,7 @@ class DataSplit:
             ):
                 self.indices = range(i - self.series_length, i, 1)
                 self.output.append(self.data.iloc[self.indices])
-        
+
         else:
             self.output = self.data
 
@@ -455,7 +453,7 @@ class DataSplit:
         else:
             return (
                 self.dataset[:, :-2].astype("float32"),
-                self.dataset[:, -2:].astype("float32")
+                self.dataset[:, -2:].astype("float32"),
             )
 
     def split_data(self):
