@@ -341,6 +341,7 @@ class DataSplit:
     def __init__(
         self,
         dataframe,
+        sequence: bool = True,
         train_pct: float = 0.8,
         val_pct: float = 0.1,
         test_pct: float = 0.1,
@@ -366,15 +367,17 @@ class DataSplit:
         self.test_pct = test_pct
         self.series_length = series_length
         self.stride = stride
+        self.sequence = sequence
 
         assert (self.train_pct + self.test_pct + self.val_pct) == 1
 
-    def _make_series(self, input_df):
+    def _make_series(self, input_df, seq):
         """
         Create 3D array of slices based on series_length and stride
 
         Argument:
-            input_df           : a well formatted dataframe with features and two dependent variables as columns
+            input_df (df)      : a well formatted dataframe with features and two dependent variables as columns
+            seq (bool)         : a boolean KWARG passed from the class instantiation, default = True
 
         Return:
             a 3D numpy array with each slice containing a series length of hours worth of data
@@ -384,17 +387,23 @@ class DataSplit:
         self.data = input_df.copy()
         self.start_index = self.series_length
         self.end_index = len(self.data)
+        self.seq = seq
 
         self.output = []
 
-        # Iterate through dataframe at stride length, creating slice of series_length
-        for i in range(
-            self.start_index,
-            self.end_index,
-            self.stride,
-        ):
-            self.indices = range(i - self.series_length, i, 1)
-            self.output.append(self.data.iloc[self.indices])
+        ### Check for sequence bool KWARG
+        if self.seq:
+            # Iterate through dataframe at stride length, creating slice of series_length
+            for i in range(
+                self.start_index,
+                self.end_index,
+                self.stride,
+            ):
+                self.indices = range(i - self.series_length, i, 1)
+                self.output.append(self.data.iloc[self.indices])
+        
+        else:
+            self.output = self.data
 
         # Return as array
         return np.array(self.output)
@@ -422,7 +431,7 @@ class DataSplit:
 
         return self.train_split, self.val_split, self.test_split
 
-    def _xy_splits(self, input_df):
+    def _xy_splits(self, input_df, seq):
         """
         Separates the sets of x matrixes and y column vectors
 
@@ -434,13 +443,20 @@ class DataSplit:
         """
 
         self.dataset = input_df.copy()
+        self.seq = seq
 
         ## Remove last columns to make y vectors for the dataset
 
-        return (
-            self.dataset[:, :, :-2].astype("float32"),
-            self.dataset[:, :, -2:].astype("float32"),
-        )
+        if self.seq:
+            return (
+                self.dataset[:, :, :-2].astype("float32"),
+                self.dataset[:, :, -2:].astype("float32"),
+            )
+        else:
+            return (
+                self.dataset[:, :-2].astype("float32"),
+                self.dataset[:, -2:].astype("float32")
+            )
 
     def split_data(self):
         """
@@ -449,7 +465,6 @@ class DataSplit:
         Return:
             A tuple of tuples - (train_x, train_y), (val_x, val_y), (test_x, test_y), (norm_layer)
         """
-
         # Run the dataframe through the splitter to create train, val, and test DFs
         self.pre_split = self._train_val_test_split(self.dataframe)
 
@@ -461,14 +476,15 @@ class DataSplit:
         self.norm_layer.adapt(self.training_pre_split)
 
         # Convert each df to a sequence of length "series_length"
+        self.seq = self.sequence
         self.output_list = ["train", "val", "test"]
         for i, df in enumerate(self.pre_split):
-            self.output_list[i] = self._make_series(df)
+            self.output_list[i] = self._make_series(df, self.seq)
 
         ## split x and y columns from train, val, and test sequenced datasets
-        self.train_split = self._xy_splits(self.output_list[0])
-        self.val_split = self._xy_splits(self.output_list[1])
-        self.test_split = self._xy_splits(self.output_list[2])
+        self.train_split = self._xy_splits(self.output_list[0], self.seq)
+        self.val_split = self._xy_splits(self.output_list[1], self.seq)
+        self.test_split = self._xy_splits(self.output_list[2], self.seq)
 
         # Return a tuple of tuples
         print(
