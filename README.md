@@ -10,8 +10,9 @@
 Run the following command to get `amplify` installed in your environment.
 
 ```shell
-virtualenv .venv
+virtualenv -p python3.8 .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 Now setup your ClearML integration, go to your [ClearML Dashboard](https://app.clear.ml/dashboard) and run:
