@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -9,11 +11,15 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import Flatten
 from keras.layers import Dropout
+from keras.layers import RepeatVector
+from keras.layers import Normalization
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from matplotlib import pyplot
 from keras.layers import Bidirectional
 from keras.layers import TimeDistributed
+
+from datetime import datetime
 
 
 class IModel:
@@ -21,13 +27,116 @@ class IModel:
     Interface file for any model
     """
 
-    def __init__(self, model_name="Unknown"):
+    imodel_id = 0
+
+    def __init__(
+        self,
+        model_name="unknown",
+        model_id=None,
+        log_dir=os.path.join('../', 'logs'),
+        model_dir=os.path.join('../', 'models'),
+        norm_layer=Normalization(),
+        lr_factor=1,
+        lr_patience=3,
+        es_patience=10,
+        l_rate=0.0005,
+        min_l_rate=0.0001,
+        dropout=0.25,
+        batch=1,
+        epoch=50,
+    ):
         """
         Create an empty model
         """
         self.model = None
         self.model_name = model_name
         self.history = None
+
+        # weight save name
+        if model_id:
+            self.model_id = model_id
+        else:
+            self.model_id = IModel.imodel_id
+            IModel.imodel_id += 1
+
+        # current time for saving models
+        dt_string = datetime.now.strftime("%d-%m-%Y%H:%M:%S")  # [dd/mm/YY H:M:S]
+
+        # files
+        self.model_dir = model_dir
+        self.log_dir = log_dir
+        self.model_weights_file_name = self.model_name + '_weights_' + dt_string + '.hdf5'
+        self.model_weights_file_path = os.path.abspath(os.path.join(model_dir, self.model_weights_file_name))
+
+        # model param
+        self.norm_layer = norm_layer
+
+        # hyper parameters
+        self.SetHyperParam(
+            lr_factor=lr_factor,
+            lr_patience=lr_patience,
+            es_patience=es_patience,
+            l_rate=l_rate,
+            min_l_rate=min_l_rate,
+            dropout=dropout,
+            batch=batch,
+            epoch=epoch,
+        )
+
+        # callabacks
+        self.tensor_board_cb: tf.keras.callback.Callback = None
+        self.model_checkpoint_cb: tf.keras.callback.Callback = None
+        self.reduce_lr_on_plateau_cb: tf.keras.callbacks.Callback = None
+        self.early_stopping_cb: tf.keras.callbacks.Callback = None
+
+        # metrics
+        self.metrics = [keras.metrics.RootMeanSquaredError(), keras.metrics.MeanSquaredError(), keras.metrics.MeanAbsoluteError()]
+
+    def SetHyperParam(
+        self,
+        lr_factor: int = 1,
+        lr_patience: int = 3,
+        es_patience: int = 10,
+        l_rate: float = 0.0005,
+        min_l_rate: float = 0.0001,
+        dropout: float = 0.25,
+        batch: int = 1,
+        epoch: int = 50,
+    ):
+        """
+        Set hyper parameters
+
+        Arguments:
+            lr_factor (int)     : learning rate factor
+            lr_patience (int)   : learning rate patience
+            es_patience (int)   : early stopping patience
+            l_rate (float)      : learning rate
+            min_l_rate (float)  : minimum learning rate
+            dropout (float)     : dropout
+            batch (int)         : training batch size
+            epoch (int)         : training epoch number
+        """
+        self.lr_factor = lr_factor
+        self.lr_patience = lr_patience
+        self.es_patience = es_patience
+        self.l_rate = l_rate
+        self.min_l_rate = min_l_rate
+        self.dropout = dropout
+        self.batch = batch
+        self.epoch = epoch
+
+    def SetupCallbacks(self):
+        """
+        Setup callbacks
+        """
+        self.tensor_board_cb = tf.keras.callbacks.TensorBoard(self.log_dir)
+        self.model_checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(
+            self.model_weights_file_path, monitor="val_loss", mode='min', save_best_only=True, save_weights_only=True, verbose=1
+        )
+        self.reduce_lr_on_plateau_cb = tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss', mode='min', factor=self.lr_factor, patience=self.lr_patience, min_lr=self.min_l_rate, verbose=0
+        )
+        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode='min', patience=self.es_patience, verbose=1)
 
     def DisplayModel(self):
         """
