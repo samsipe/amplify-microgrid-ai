@@ -36,7 +36,7 @@ class IModel:
         log_dir=os.path.join('../', 'logs'),
         model_dir=os.path.join('../', 'models'),
         norm_layer=Normalization(),
-        lr_factor=1,
+        lr_factor=0.9,
         lr_patience=3,
         es_patience=10,
         l_rate=0.0005,
@@ -60,7 +60,7 @@ class IModel:
             IModel.imodel_id += 1
 
         # current time for saving models
-        dt_string = datetime.now.strftime("%d-%m-%Y%H:%M:%S")  # [dd/mm/YY H:M:S]
+        dt_string = datetime.now().strftime("%d-%m-%Y%_H:%M:%S")  # [dd/mm/YY H:M:S]
 
         # files
         self.model_dir = model_dir
@@ -94,7 +94,7 @@ class IModel:
 
     def SetHyperParam(
         self,
-        lr_factor: int = 1,
+        lr_factor: float = 0.9,
         lr_patience: int = 3,
         es_patience: int = 10,
         l_rate: float = 0.0005,
@@ -168,7 +168,7 @@ class IModel:
 
     def Predict(self, x_test):
         """
-        Runs and returns a prediction using the trained model and x_test input.
+        Runs and returns a prediction using the trained model and x_test input.ß
 
         Arguments:
             x_test (ndarray/tensor)     : x test data
@@ -387,13 +387,13 @@ class YeetLSTMv1(IModel):
 
     def __init__(
         self,
-        norm_layer,
+        norm_layer: Normalization = Normalization(mean=0.0, variance=1.0),
         n_series_len=48,
         n_series_ft=6,
         n_series_out=1,
         n_lstm=None,
         activation_fn='relu',
-        lr_factor=1,
+        lr_factor=0.9,
         lr_patience=None,
         es_patience=None,
         l_rate=0.0005,
