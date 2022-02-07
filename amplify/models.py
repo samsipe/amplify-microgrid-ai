@@ -378,3 +378,121 @@ class MultiLayerLSTM(IModel):
         if self.model:
             self.model.load_weights("../models/multi_layer_lstm_weights.hdf5")
             return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+
+
+class YeetLSTMv1(IModel):
+    """
+    MultiLayer LSTM Model.
+    """
+
+    def __init__(
+        self,
+        norm_layer,
+        n_series_len=48,
+        n_series_ft=6,
+        n_series_out=1,
+        n_lstm=None,
+        activation_fn='relu',
+        lr_factor=1,
+        lr_patience=None,
+        es_patience=None,
+        l_rate=0.0005,
+        min_l_rate=0.0001,
+        dropout=0.25,
+        batch=1,
+        epoch=50,
+    ):
+        """ Initialize model """
+        IModel.__init__(
+            self,
+            model_name="yeet_lstm_v1",
+            norm_layer=norm_layer,
+            lr_factor=lr_factor,
+            lr_patience=lr_patience,
+            es_patience=es_patience,
+            l_rate=l_rate,
+            min_l_rate=min_l_rate,
+            dropout=dropout,
+            batch=batch,
+            epoch=epoch,
+        )
+
+        # CONSTANTS
+        lstm_c = 10
+        patience_c = 10
+
+        # model param
+        self.n_series_len = n_series_len
+        self.n_series_ft = n_series_ft
+        self.n_series_out = n_series_out
+        self.activation_fn = activation_fn
+        self.n_lstm_layers = n_lstm if n_lstm else self.n_series_len * lstm_c
+
+        # hyper param
+        # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
+        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+
+        # callbacks
+        self.SetupCallbacks()
+        self.callbacks = [self.tensor_board_cb, self.model_checkpoint_cb, self.early_stopping_cb, self.reduce_lr_on_plateau_cb]
+
+        self.CreateModel()
+        self.DisplayModel()
+
+    def CreateModel(self):
+        """
+        Create the model
+        """
+        norm_inputs = Input(shape=(self.n_series_len, self.n_series_ft))
+        nn_inputs = self.norm_layer(norm_inputs)
+        nn_layer = Dense(self.n_lstm_layers)
+        encoder_inputs = nn_layer(nn_inputs)
+        encoder_l1 = LSTM(self.n_lstm_layers, return_state=True, dropout=self.dropout)
+        encoder_outputs1 = encoder_l1(encoder_inputs)
+
+        encoder_states1 = encoder_outputs1[1:]
+
+        decoder_inputs = RepeatVector(self.n_series_len)(encoder_outputs1[0])
+
+        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(decoder_inputs, initial_state=encoder_states1)
+        decoder_outputs1 = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn))(decoder_l1)
+
+        self.model = Model(norm_inputs, decoder_outputs1)
+        return self.model
+
+    def TrainModel(self, x_train, y_train, x_val, y_val):
+        """
+        Train the model
+        """
+        if self.model is None:
+            return self.history
+
+        # Compile model
+        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.Huber(), metrics=self.metrics)
+
+        # Fit Model
+        self.history = self.model.fit(
+            x=x_train,
+            y=y_train,
+            epochs=self.epoch,
+            batch_size=self.batch,
+            validation_data=(x_val, y_val),
+            shuffle=False,
+            callbacks=self.callbacks,
+        )
+
+        return self.history
+
+    def Predict(self, x_test):
+        """
+        Runs and returns a prediction using the trained model and x_test input.
+
+        Arguments:
+            x_test (ndarray/tensor)     : x test data
+
+        Return
+            prediction output of model
+        """
+        if self.model:
+            self.model.load_weights(self.model_weights_file_path)
+            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
