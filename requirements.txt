@@ -7,6 +7,7 @@ tensorboard
 matplotlib
 pysolar
 dash
+dash-bootstrap-components
 
 # Metrics and Data
 clearml
