@@ -8,6 +8,7 @@ matplotlib
 pysolar
 dash
 dash-bootstrap-components
+gunicorn
 
 # Metrics and Data
 clearml

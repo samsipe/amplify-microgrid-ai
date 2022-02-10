@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  dash:
+    image: amplify:latest
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities:
+              - gpu
+    ports:
+      - 80:80
+    volumes:
+      - /home/samsipe/clearml.conf:/root/clearml.conf
+    restart: always
+    user:
+      "root"
+    command: "gunicorn -b 0.0.0.0:80 app:server"

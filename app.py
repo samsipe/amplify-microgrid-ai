@@ -5,6 +5,8 @@ from dash import Dash, html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
+import flask
+
 
 def add_data():
     data_dir = glob(
@@ -31,8 +33,13 @@ def add_data():
     fig.update_layout(legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
     return fig
 
+server = flask.Flask(__name__)
+
 app = Dash(
-    __name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.BOOTSTRAP]
+    __name__,
+    title="Amplify Microgrid AI",
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    server=server,
 )
 
 LOGO = "https://images.plot.ly/logo/new-branding/plotly-logomark.png"
@@ -42,7 +49,7 @@ nav = dbc.Nav(
         dbc.NavItem(dbc.NavLink("Prediction", active=True, href="#")),
     ],
     pills=True,
-    className="g-0 ms-auto flex-nowrap mt-3 mt-md-0"
+    className="g-0 ms-auto flex-nowrap mt-3 mt-md-0",
 )
 
 navbar = dbc.Navbar(
@@ -53,7 +60,9 @@ navbar = dbc.Navbar(
                 dbc.Row(
                     [
                         dbc.Col(html.Img(src=LOGO, height="30px")),
-                        dbc.Col(dbc.NavbarBrand("Amplify Microgrid AI", className="ms-2")),
+                        dbc.Col(
+                            dbc.NavbarBrand("Amplify Microgrid AI", className="ms-2")
+                        ),
                     ],
                     align="center",
                     className="g-0",
@@ -85,6 +94,7 @@ def toggle_navbar_collapse(n, is_open):
         return not is_open
     return is_open
 
+
 dashboard = dbc.Container(
     children=[
         html.H4(
@@ -105,9 +115,7 @@ dashboard = dbc.Container(
     ]
 )
 
-app.layout = html.Div(
-    [navbar, dashboard]
-)
+app.layout = html.Div([navbar, dashboard])
 
 
 if __name__ == "__main__":
