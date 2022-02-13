@@ -2,16 +2,16 @@ version: "3.9"
 
 services:
   dash:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: amplify:latest
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities:
-              - gpu
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities:
+    #           - gpu
     ports:
       - 80:80
     volumes:
