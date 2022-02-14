@@ -2,6 +2,7 @@ from glob import glob
 
 from clearml import Dataset, Model
 from amplify.data import DataSplit
+from amplify.models import YeetLSTMv2
 import tensorflow as tf
 
 from dash import Dash, html, dcc, Input, Output, State
@@ -11,40 +12,38 @@ import numpy as np
 import pandas as pd
 import flask
 
-data_dir = glob(
-    Dataset.get(
-        dataset_name="xy_data",
-        dataset_project="amplify",
-    ).get_local_copy()
-    + "/**"
-)[0]
+#data_dir = glob(
+#    Dataset.get(
+#        dataset_name="xy_data",
+#        dataset_project="amplify",
+#    ).get_local_copy()
+#    + "/**"
+#)[0]
 
-xy_data = pd.read_csv(data_dir, index_col=0)
+#xy_data = pd.read_csv(data_dir, index_col=0)
 
-_, _, _, norm_layer = DataSplit(
-    xy_data,
-    series_length=48,
-    stride=1,
-).split_data()
+#_, _, _, norm_layer = DataSplit(
+#    xy_data,
+#    series_length=48,
+#    stride=1,
+#).split_data()
 
 # Define the model
-inputs = tf.keras.layers.Input(shape=(48, 7))
-x = norm_layer(inputs)
-x = tf.keras.layers.LSTM(400, return_sequences=True, dropout=0.2)(x)
-outputs = tf.keras.layers.TimeDistributed(
-    tf.keras.layers.Dense(2, activation="relu", kernel_regularizer="l2")
-)(x)
-model = tf.keras.models.Model(inputs, outputs)
-
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(),
-    loss=tf.keras.losses.MeanSquaredError(),
-    metrics=[tf.keras.metrics.RootMeanSquaredError()],
-)
-
+#inputs = tf.keras.layers.Input(shape=(48, 7))
+#x = norm_layer(inputs)
+#x = tf.keras.layers.LSTM(400, return_sequences=True, dropout=0.2)(x)
+#outputs = tf.keras.layers.TimeDistributed(
+#    tf.keras.layers.Dense(2, activation="relu", kernel_regularizer="l2")
+#)(x)
+#model = tf.keras.models.Model(inputs, outputs)
+#
+#model.compile(
+#    optimizer=tf.keras.optimizers.Adam(),
+#    loss=tf.keras.losses.MeanSquaredError(),
+#    metrics=[tf.keras.metrics.RootMeanSquaredError()],
+#)
 model_path = Model(model_id="f6b26b93ecc842319d0733711523f22e").get_local_copy()
-
-model.load_weights(model_path)
+model = YeetLSTMv2(n_series_len=48, n_series_ft=7, n_series_out=2, n_lstm=200, model_weights_path=model_path)
 
 
 def add_data(xy_data, model):

@@ -72,7 +72,7 @@ class IModel:
         self.norm_layer = norm_layer
 
         # hyper parameters
-        self.SetHyperParam(
+        self.set_hyper_param(
             lr_factor=lr_factor,
             lr_patience=lr_patience,
             es_patience=es_patience,
@@ -92,7 +92,7 @@ class IModel:
         # metrics
         self.metrics = [keras.metrics.RootMeanSquaredError(), keras.metrics.MeanSquaredError(), keras.metrics.MeanAbsoluteError()]
 
-    def SetHyperParam(
+    def set_hyper_param(
         self,
         lr_factor: float = 0.9,
         lr_patience: int = 3,
@@ -125,7 +125,7 @@ class IModel:
         self.batch = batch
         self.epoch = epoch
 
-    def SetupCallbacks(self):
+    def setup_callbacks(self):
         """
         Setup callbacks
         """
@@ -138,7 +138,7 @@ class IModel:
         )
         self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode='min', patience=self.es_patience, verbose=1)
 
-    def DisplayModel(self):
+    def display_model(self):
         """
         Display the model summary
         """
@@ -146,12 +146,12 @@ class IModel:
             self.model.summary()
             keras.utils.plot_model(self.model, show_shapes=True, show_layer_names=False)
 
-    def CreateModel(self):
+    def create_model(self):
         """
         Create the model. Insert model architecture here.
         """
 
-    def TrainModel(self, x_train, y_train, x_val, y_val):
+    def train_model(self, x_train, y_train, x_val, y_val):
         """
         Train the model using x_train, y_train, x_val, y_val data.
         Fits the model and returns the fit history
@@ -166,7 +166,20 @@ class IModel:
             fit history
         """
 
-    def Predict(self, x_test):
+    def load_weights(self, model_weights_path: str = None):
+        """
+        load pretrained weights into the model
+
+        Arguments:
+            model_weights_path (str)    : file path for model weights
+        """
+        if not (model_weights_path is None or self.model is None):
+            try:
+                self.model.load_weights(model_weights_path)
+            except:
+                print("Error: Cannot load model weights!")
+
+    def predict(self, x_test):
         """
         Runs and returns a prediction using the trained model and x_test input.ß
 
@@ -201,10 +214,10 @@ class SimpleLSTM_1(IModel):
         # model callbacks
         self.reduce_lr = keras.callbacks.LearningRateScheduler(lambda x: 1e-3 * 0.90 ** x)
 
-        self.SetHyperParam()
-        self.CreateModel()
+        self.set_hyper_param()
+        self.create_model()
 
-    def SetHyperParam(self, epoch=30, batch_size=10):
+    def set_hyper_param(self, epoch=30, batch_size=10):
         """
         Set hyperparameters for training
 
@@ -215,7 +228,7 @@ class SimpleLSTM_1(IModel):
         self.epoch = epoch
         self.batch_size = batch_size
 
-    def CreateModel(self):
+    def create_model(self):
         """
         Create the model
         """
@@ -236,7 +249,7 @@ class SimpleLSTM_1(IModel):
         # self.model = Model(inputs=lstm_input, outputs=out)
         return self.model
 
-    def TrainModel(self, x_train, y_train, x_val, y_val):
+    def train_model(self, x_train, y_train, x_val, y_val):
         """
         Train the model
         """
@@ -303,10 +316,10 @@ class MultiLayerLSTM(IModel):
         self.tensorboard_logs = tf.keras.callbacks.TensorBoard('../logs/', histogram_freq=1)
         self.callbacks = [self.model_cp, self.reduce_lr, self.early_stop, self.tensorboard_logs]
 
-        self.SetHyperParam()
-        self.CreateModel()
+        self.set_hyper_param()
+        self.create_model()
 
-    def SetHyperParam(self, epoch=30, batch_size=10):
+    def set_hyper_param(self, epoch=30, batch_size=10):
         """
         Set hyperparameters for training
 
@@ -317,7 +330,7 @@ class MultiLayerLSTM(IModel):
         self.epoch = epoch
         self.batch_size = batch_size
 
-    def CreateModel(self):
+    def create_model(self):
         """
         Create the model
         """
@@ -340,7 +353,7 @@ class MultiLayerLSTM(IModel):
         # self.model = Model(inputs=lstm_input, outputs=out)
         return self.model
 
-    def TrainModel(self, x_train, y_train, x_val, y_val):
+    def train_model(self, x_train, y_train, x_val, y_val):
         """
         Train the model
         """
@@ -365,7 +378,7 @@ class MultiLayerLSTM(IModel):
 
         return self.history
 
-    def Predict(self, x_test):
+    def predict(self, x_test):
         """
         Runs and returns a prediction using the trained model and x_test input.
 
@@ -433,13 +446,14 @@ class YeetLSTMv1(IModel):
         self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
 
         # callbacks
-        self.SetupCallbacks()
+        self.setup_callbacks()
+
         self.callbacks = [self.tensor_board_cb, self.model_checkpoint_cb, self.early_stopping_cb, self.reduce_lr_on_plateau_cb]
 
-        self.CreateModel()
-        self.DisplayModel()
+        self.create_model()
+        self.display_model()
 
-    def CreateModel(self):
+    def create_model(self):
         """
         Create the model
         """
@@ -460,7 +474,7 @@ class YeetLSTMv1(IModel):
         self.model = Model(norm_inputs, decoder_outputs1)
         return self.model
 
-    def TrainModel(self, x_train, y_train, x_val, y_val):
+    def train_model(self, x_train, y_train, x_val, y_val):
         """
         Train the model
         """
@@ -468,7 +482,7 @@ class YeetLSTMv1(IModel):
             return self.history
 
         # Compile model
-        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.Huber(), metrics=self.metrics)
+        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.MeanSquaredError(), metrics=self.metrics)
 
         # Fit Model
         self.history = self.model.fit(
@@ -483,7 +497,7 @@ class YeetLSTMv1(IModel):
 
         return self.history
 
-    def Predict(self, x_test):
+    def predict(self, x_test):
         """
         Runs and returns a prediction using the trained model and x_test input.
 
@@ -496,3 +510,130 @@ class YeetLSTMv1(IModel):
         if self.model:
             self.model.load_weights(self.model_weights_file_path)
             return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+
+
+class YeetLSTMv2(IModel):
+    """
+    MultiLayer LSTM Model.
+    """
+
+    def __init__(
+        self,
+        norm_layer: Normalization = Normalization(mean=0.0, variance=1.0),
+        n_series_len=48,
+        n_series_ft=6,
+        n_series_out=1,
+        n_lstm=None,
+        activation_fn='relu',
+        lr_factor=0.8,
+        lr_patience=2,
+        es_patience=25,
+        l_rate=0.0005,
+        min_l_rate=1e-8,
+        dropout=0.20,
+        batch=1,
+        epoch=100,
+        kernel_regularizer='l2',
+        model_weights_path: str = None,
+    ):
+        """ Initialize model """
+        IModel.__init__(
+            self,
+            model_name="yeet_lstm_v2",
+            norm_layer=norm_layer,
+            lr_factor=lr_factor,
+            lr_patience=lr_patience,
+            es_patience=es_patience,
+            l_rate=l_rate,
+            min_l_rate=min_l_rate,
+            dropout=dropout,
+            batch=batch,
+            epoch=epoch,
+        )
+
+        # CONSTANTS
+        lstm_c = 10
+        patience_c = 10
+
+        # model param
+        self.n_series_len = n_series_len
+        self.n_series_ft = n_series_ft
+        self.n_series_out = n_series_out
+        self.activation_fn = activation_fn
+        self.n_lstm_layers = n_lstm if n_lstm else self.n_series_len * lstm_c
+        self.kernel_regularizer = kernel_regularizer
+
+        # hyper param
+        # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
+        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+
+        # callbacks
+        self.setup_callbacks()
+        self.lr_scheduler_cb = tf.keras.callbacks.LearningRateScheduler(self.scheduler)
+        self.callbacks = [self.tensor_board_cb, self.model_checkpoint_cb, self.early_stopping_cb, self.lr_scheduler_cb]
+
+        self.create_model()
+        self.display_model()
+
+        self.load_weights(model_weights_path)
+
+    def create_model(self):
+        """
+        Create the model
+        """
+        norm_inputs = Input(shape=(self.n_series_len, self.n_series_ft))
+        norm_layer = self.norm_layer(norm_inputs)
+        lstm_layer = LSTM(self.n_lstm_layers, return_state=True, dropout=self.dropout)
+        lstm_outputs = lstm_layer(norm_layer)
+        td_outputs = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn, kernel_regularizer=self.kernel_regularizer))(
+            lstm_outputs
+        )
+
+        self.model = Model(norm_inputs, td_outputs)
+        return self.model
+
+    def train_model(self, x_train, y_train, x_val, y_val):
+        """
+        Train the model
+        """
+        if self.model is None:
+            return self.history
+
+        # Compile model
+        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.MeanSquaredError(), metrics=self.metrics)
+
+        # Fit Model
+        self.history = self.model.fit(
+            x=x_train,
+            y=y_train,
+            epochs=self.epoch,
+            batch_size=self.batch,
+            validation_data=(x_val, y_val),
+            shuffle=True,
+            callbacks=self.callbacks,
+        )
+
+        return self.history
+
+    def predict(self, x_test):
+        """
+        Runs and returns a prediction using the trained model and x_test input.
+
+        Arguments:
+            x_test (ndarray/tensor)     : x test data
+
+        Return
+            prediction output of model
+        """
+        if self.model:
+            self.model.load_weights(self.model_weights_file_path)
+            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+
+    def scheduler(self, epoch):
+        """
+        Scheduler function.
+
+        Arguments:
+            epoch (int)     : Epoch
+        """
+        return self.l_rate / (epoch % 10 + 1)
