@@ -521,7 +521,7 @@ class YeetLSTMv2(IModel):
         self,
         norm_layer: Normalization = Normalization(mean=0.0, variance=1.0),
         n_series_len=48,
-        n_series_ft=6,
+        n_series_ft=7,
         n_series_out=1,
         n_lstm=None,
         activation_fn='relu',
