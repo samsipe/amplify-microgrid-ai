@@ -705,7 +705,7 @@ class PredictData:
         self.prep_feats.drop("dt", axis=1, inplace=True)
 
         # Convert to Numpy array of shape (1, 48, 7)
-        self.pred_array = np.reshape(np.array(self.pred_features), (1, 48, 7))
+        self.pred_array = np.reshape(np.array(self.prep_feats), (1, 48, 7))
 
         # Perform prediction on forecast array
         self.y_preds = self.model.predict(self.pred_array)
@@ -723,5 +723,4 @@ class PredictData:
         # Set index on column dt
         self.preds_df.set_index("dt", inplace=True)
 
-        print("Info: Prediction is complete!")
         return self.preds_df
