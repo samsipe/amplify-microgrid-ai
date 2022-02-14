@@ -538,6 +538,7 @@ class PredictData:
         self.features = features
         self.cyclical_features = cyclical_features
         self.ow_api_key = ow_api_key
+        self.model = model
 
     def forecast(self):
         """
