@@ -20,6 +20,8 @@ from keras.layers import TimeDistributed
 
 from datetime import datetime
 
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 
 class IModel:
     """
@@ -32,8 +34,8 @@ class IModel:
         self,
         model_name="unknown",
         model_id=None,
-        log_dir=os.path.join("../", "logs"),
-        model_dir=os.path.join("../", "models"),
+        log_dir=os.path.join(PROJECT_DIR, "logs"),
+        model_dir=os.path.join(PROJECT_DIR, "models"),
         norm_layer=Normalization(),
         lr_factor=0.9,
         lr_patience=3,
@@ -64,12 +66,8 @@ class IModel:
         # files
         self.model_dir = model_dir
         self.log_dir = log_dir
-        self.model_weights_file_name = (
-            self.model_name + "_weights_" + dt_string + ".hdf5"
-        )
-        self.model_weights_file_path = os.path.abspath(
-            os.path.join(model_dir, self.model_weights_file_name)
-        )
+        self.model_weights_file_name = self.model_name + "_weights_" + dt_string + ".hdf5"
+        self.model_weights_file_path = os.path.abspath(os.path.join(model_dir, self.model_weights_file_name))
 
         # model param
         self.norm_layer = norm_layer
@@ -153,9 +151,7 @@ class IModel:
             min_lr=self.min_l_rate,
             verbose=0,
         )
-        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss", mode="min", patience=self.es_patience, verbose=1
-        )
+        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=self.es_patience, verbose=1)
 
     def display_model(self):
         """
@@ -194,9 +190,10 @@ class IModel:
         """
         if not (model_weights_path is None or self.model is None):
             try:
+                self.model_weights_file_path = model_weights_path
                 self.model.load_weights(model_weights_path)
-            except:
-                print("Error: Cannot load model weights!")
+            except Exception as e:
+                print(f"Error: Cannot load model weights! -- {e}")
 
     def predict(self, x_test):
         """
@@ -239,9 +236,7 @@ class SimpleLSTM_1(IModel):
         self.norm_layer = norm_layer
 
         # model callbacks
-        self.reduce_lr = keras.callbacks.LearningRateScheduler(
-            lambda x: 1e-3 * 0.90**x
-        )
+        self.reduce_lr = keras.callbacks.LearningRateScheduler(lambda x: 1e-3 * 0.90 ** x)
 
         self.set_hyper_param()
         self.create_model()
@@ -265,9 +260,7 @@ class SimpleLSTM_1(IModel):
         # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(
-            self.norm_layer
-        )  # , input_shape=(self.n_series_len, self.n_series_ft))
+        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
         model.add(
             LSTM(
                 self.n_layer,
@@ -359,12 +352,8 @@ class MultiLayerLSTM(IModel):
             min_lr=1e-8,
             verbose=1,
         )
-        self.early_stop = tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss", mode="min", patience=(3 * PATIENCE), verbose=1
-        )
-        self.tensorboard_logs = tf.keras.callbacks.TensorBoard(
-            "../logs/", histogram_freq=1
-        )
+        self.early_stop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=(3 * PATIENCE), verbose=1)
+        self.tensorboard_logs = tf.keras.callbacks.TensorBoard("../logs/", histogram_freq=1)
         self.callbacks = [
             self.model_cp,
             self.reduce_lr,
@@ -394,9 +383,7 @@ class MultiLayerLSTM(IModel):
         # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(
-            self.norm_layer
-        )  # , input_shape=(self.n_series_len, self.n_series_ft))
+        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
         model.add(Dropout(rate=self.dropout_rate))
         model.add(Dense(self.n_series_ft, activation="relu"))
         model.add(
@@ -455,9 +442,7 @@ class MultiLayerLSTM(IModel):
         """
         if self.model:
             self.model.load_weights("../models/multi_layer_lstm_weights.hdf5")
-            return self.model.predict(
-                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
-            )
+            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
 
 
 class YeetLSTMv1(IModel):
@@ -510,9 +495,7 @@ class YeetLSTMv1(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = (
-            self.es_patience if self.es_patience else patience_c * self.batch
-        )
+        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
 
         # callbacks
         self.setup_callbacks()
@@ -542,12 +525,8 @@ class YeetLSTMv1(IModel):
 
         decoder_inputs = RepeatVector(self.n_series_len)(encoder_outputs1[0])
 
-        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(
-            decoder_inputs, initial_state=encoder_states1
-        )
-        decoder_outputs1 = TimeDistributed(
-            Dense(self.n_series_out, activation=self.activation_fn)
-        )(decoder_l1)
+        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(decoder_inputs, initial_state=encoder_states1)
+        decoder_outputs1 = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn))(decoder_l1)
 
         self.model = Model(norm_inputs, decoder_outputs1)
         return self.model
@@ -591,9 +570,7 @@ class YeetLSTMv1(IModel):
         """
         if self.model:
             self.model.load_weights(self.model_weights_file_path)
-            return self.model.predict(
-                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
-            )
+            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
 
 
 class YeetLSTMv2(IModel):
@@ -603,7 +580,7 @@ class YeetLSTMv2(IModel):
 
     def __init__(
         self,
-        norm_layer: Normalization = Normalization(mean=0.0, variance=1.0),
+        norm_layer: Normalization = Normalization(axis=-1),
         n_series_len=48,
         n_series_ft=7,
         n_series_out=1,
@@ -649,9 +626,7 @@ class YeetLSTMv2(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = (
-            self.es_patience if self.es_patience else patience_c * self.batch
-        )
+        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
 
         # callbacks
         self.setup_callbacks()
@@ -724,10 +699,8 @@ class YeetLSTMv2(IModel):
             prediction output of model
         """
         if self.model:
-            self.model.load_weights(self.model_weights_file_path)
-            return self.model.predict(
-                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
-            )
+            self.load_weights(self.model_weights_file_path)
+            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
 
     def scheduler(self, epoch):
         """

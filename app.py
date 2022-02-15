@@ -23,33 +23,33 @@ data_dir = glob(
 
 xy_data = pd.read_csv(data_dir, index_col=0)
 
+#TODO: remove?
 (x_train, y_train), (x_val, y_val), (x_test, y_test), norm_layer = DataSplit(
     xy_data,
     sequence=False,
 ).split_data()
 
-# Define the model
-inputs = keras.layers.Input(shape=(48, 7))
-x = keras.layers.Normalization()(inputs)
-x = keras.layers.LSTM(400, return_sequences=True, dropout=0.2)(x)
-outputs = keras.layers.TimeDistributed(
-    keras.layers.Dense(2, activation="relu", kernel_regularizer="l2")
-)(x)
-model = keras.models.Model(inputs, outputs)
-
-model.compile(
-    # optimizer=keras.optimizers.Adam(),
-    # loss=keras.losses.MeanSquaredError(),
-    # metrics=[keras.metrics.RootMeanSquaredError()],
-)
 
 model_path = Model(model_id="f6b26b93ecc842319d0733711523f22e").get_local_copy()
-model.load_weights(model_path)
-# model = YeetLSTMv2(n_series_len=48, n_series_ft=7, n_series_out=2, n_lstm=400, model_weights_path=model_path)
+print(model_path)
+model = YeetLSTMv2(n_series_len=48, n_series_ft=7, n_series_out=2, n_lstm=400, model_weights_path=model_path)
 
+#TODO: remove?
 # model.evaluate(x_val, y_val, verbose=1)
 # model.evaluate(x_test, y_test, verbose=1)
 
+def add_data(xy_data, model):
+    i = np.random.default_rng().integers(0, xy_data.shape[0] - 48)
+    y_preds = model.predict(
+        np.reshape(
+            np.array(
+                xy_data.iloc[i : i + 48].drop(
+                    ["True Power (kW) solar", "True Power (kW) usage"], axis=1
+                )
+            ),
+            (1, 48, 7),
+        )
+    )
 
 def predict_data(model):
 
@@ -94,9 +94,7 @@ navbar = dbc.Navbar(
                 dbc.Row(
                     [
                         dbc.Col(html.Img(src=LOGO, height="30px")),
-                        dbc.Col(
-                            dbc.NavbarBrand("Amplify Microgrid AI", className="ms-2")
-                        ),
+                        dbc.Col(dbc.NavbarBrand("Amplify Microgrid AI", className="ms-2")),
                     ],
                     align="center",
                     className="g-0",
