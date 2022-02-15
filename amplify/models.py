@@ -5,7 +5,6 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.preprocessing import sequence
 from keras import Input
-from sklearn.preprocessing import OneHotEncoder
 from keras.models import Sequential, Model
 from keras.layers import Dense
 from keras.layers import LSTM
@@ -13,15 +12,14 @@ from keras.layers import Flatten
 from keras.layers import Dropout
 from keras.layers import RepeatVector
 from keras.layers import Normalization
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
-from matplotlib import pyplot
 from keras.layers import Bidirectional
 from keras.layers import TimeDistributed
 
 from datetime import datetime
 
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+PROJECT_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir)
+)
 
 
 class IModel:
@@ -69,8 +67,12 @@ class IModel:
         # files
         self.model_dir = model_dir
         self.log_dir = log_dir
-        self.model_weights_file_name = self.model_name + "_weights_" + dt_string + ".hdf5"
-        self.model_weights_file_path = os.path.abspath(os.path.join(model_dir, self.model_weights_file_name))
+        self.model_weights_file_name = (
+            self.model_name + "_weights_" + dt_string + ".hdf5"
+        )
+        self.model_weights_file_path = os.path.abspath(
+            os.path.join(model_dir, self.model_weights_file_name)
+        )
 
         # model param
         self.norm_layer = norm_layer
@@ -154,7 +156,9 @@ class IModel:
             min_lr=self.min_l_rate,
             verbose=0,
         )
-        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=self.es_patience, verbose=1)
+        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss", mode="min", patience=self.es_patience, verbose=1
+        )
 
     def display_model(self):
         """
@@ -279,7 +283,14 @@ class SimpleLSTM_1(IModel):
         production_mode=False,
     ):
         """Initialize model"""
-        IModel.__init__(self, model_name="SimpleLSTM_1", norm_layer=norm_layer, production_mode=production_mode, batch=batch, epoch=epoch)
+        IModel.__init__(
+            self,
+            model_name="SimpleLSTM_1",
+            norm_layer=norm_layer,
+            production_mode=production_mode,
+            batch=batch,
+            epoch=epoch,
+        )
         self.n_layer = n_layer
         self.n_series_len = n_series_len
         self.n_series_ft = n_series_ft
@@ -289,7 +300,9 @@ class SimpleLSTM_1(IModel):
         self.set_hyper_param()
 
         # model callbacks
-        self.reduce_lr = keras.callbacks.LearningRateScheduler(lambda x: 1e-3 * 0.90 ** x)
+        self.reduce_lr = keras.callbacks.LearningRateScheduler(
+            lambda x: 1e-3 * 0.90**x
+        )
 
         self.create_model()
 
@@ -400,7 +413,9 @@ class MultiLayerLSTM(IModel):
 
         # hyper param
         patience_c = 3
-        self.es_patience = self.es_patience if self.es_patience else (lr_patience * patience_c)
+        self.es_patience = (
+            self.es_patience if self.es_patience else (lr_patience * patience_c)
+        )
 
         # model callbacks
         self.setup_callbacks()
@@ -476,7 +491,9 @@ class MultiLayerLSTM(IModel):
         """
         if self.model:
             self.load_weights(self.model_weights_file_path)
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
 
 class YeetLSTMv1(IModel):
@@ -531,7 +548,9 @@ class YeetLSTMv1(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+        self.es_patience = (
+            self.es_patience if self.es_patience else patience_c * self.batch
+        )
 
         # callbacks
         self.setup_callbacks()
@@ -563,8 +582,12 @@ class YeetLSTMv1(IModel):
 
         decoder_inputs = RepeatVector(self.n_series_len)(encoder_outputs1[0])
 
-        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(decoder_inputs, initial_state=encoder_states1)
-        decoder_outputs1 = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn))(decoder_l1)
+        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(
+            decoder_inputs, initial_state=encoder_states1
+        )
+        decoder_outputs1 = TimeDistributed(
+            Dense(self.n_series_out, activation=self.activation_fn)
+        )(decoder_l1)
 
         self.model = Model(norm_inputs, decoder_outputs1)
         return self.model
@@ -608,7 +631,9 @@ class YeetLSTMv1(IModel):
         """
         if self.model:
             self.load_weights(self.model_weights_file_path)
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
 
 class YeetLSTMv2(IModel):
@@ -666,7 +691,9 @@ class YeetLSTMv2(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+        self.es_patience = (
+            self.es_patience if self.es_patience else patience_c * self.batch
+        )
 
         # callbacks
         self.setup_callbacks()
@@ -742,7 +769,9 @@ class YeetLSTMv2(IModel):
         """
         if self.model:
             self.load_weights(self.model_weights_file_path)
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
     def scheduler(self, epoch):
         """
