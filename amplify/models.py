@@ -169,6 +169,17 @@ class IModel:
         Create the model. Insert model architecture here.
         """
 
+    def compile(self):
+        """
+        Compile the model
+        """
+        if self.model:
+            self.model.compile(
+                tf.optimizers.Adam(learning_rate=self.l_rate),
+                loss=keras.losses.MeanSquaredError(),
+                metrics=self.metrics,
+            )
+
     def train_model(self, x_train, y_train, x_val, y_val):
         """
         Train the model using x_train, y_train, x_val, y_val data.
@@ -230,6 +241,7 @@ class IModel:
         Evaluate the model using the keras.Model.evaluate() function
         """
         if self.model:
+            self.compile()
             return self.model.evaluate(
                 x=x,
                 y=y,
@@ -239,7 +251,7 @@ class IModel:
                 steps=steps,
                 callbacks=callbacks,
                 max_queue_size=max_queue_size,
-                worksers=workers,
+                workers=workers,
                 use_multiprocessing=use_multiprocessing,
                 return_dict=return_dict,
                 **kwargs,
