@@ -144,7 +144,7 @@ class IModel:
         """
         if self.model:
             self.model.summary()
-            keras.utils.plot_model(self.model, show_shapes=True, show_layer_names=False)
+            # keras.utils.plot_model(self.model, show_shapes=True, show_layer_names=False)
 
     def create_model(self):
         """
@@ -581,15 +581,12 @@ class YeetLSTMv2(IModel):
         """
         Create the model
         """
-        norm_inputs = Input(shape=(self.n_series_len, self.n_series_ft))
-        norm_layer = self.norm_layer(norm_inputs)
-        lstm_layer = LSTM(self.n_lstm_layers, return_state=True, dropout=self.dropout)
-        lstm_outputs = lstm_layer(norm_layer)
-        td_outputs = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn, kernel_regularizer=self.kernel_regularizer))(
-            lstm_outputs
-        )
+        inputs = Input(shape=(self.n_series_len, self.n_series_ft))
+        x = self.norm_layer(inputs)
+        x = LSTM(self.n_lstm_layers, return_sequences=True, dropout=self.dropout)(x)
+        outputs = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn, kernel_regularizer=self.kernel_regularizer))(x)
 
-        self.model = Model(norm_inputs, td_outputs)
+        self.model = Model(inputs, outputs)
         return self.model
 
     def train_model(self, x_train, y_train, x_val, y_val):
