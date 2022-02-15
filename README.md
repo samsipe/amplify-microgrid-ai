@@ -19,14 +19,24 @@ Now setup your ClearML integration, go to your [ClearML Dashboard](https://app.c
 ``` shell
 clearml-init
 ```
+From there you will need to add AWS Access Keys to access models stored in S3.
 
 ## Training
-CLI functionality has been added to this python module so you can run the following.
-
-``` shell
-amplify --version
-```
+Training can be completed using ClearML tasks or inside Jupyter Notebooks
 
 ## Jupyter Notebooks
+These are found [here](notebooks/) and  used for development, model training, and testing. All functionality should be migrated to the [amplify](amplify/) module.
 
-These are found [here](notebooks/) and  used for development and testing. All functionality should be migrated to the [amplify](amplify/) module.
+## Dash App
+To deploy the Dash app with Docker Compose, first make a file called `.env` and input an [OpenWeather API key](https://openweathermap.org/api/one-call-api) like this:
+
+```
+OW_API_KEY=this_is_an_api_key
+```
+Then run the following:
+
+```
+docker-compose up -d --build
+```
+
+This relies on the same `clearml.conf` file before with a docker bind mount. Make sure the absolute path is correct.
