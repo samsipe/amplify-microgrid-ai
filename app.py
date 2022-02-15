@@ -14,82 +14,49 @@ from amplify.data import PredictData
 from amplify.data import DataSplit
 from amplify.models import YeetLSTMv2
 
+app = Dash(
+    __name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.ZEPHYR]
+)
 
-def clearml_setup():
-    # Load the model
-    model = YeetLSTMv2(
-        n_series_len=48,
-        n_series_ft=7,
-        n_series_out=2,
-        n_lstm=400,
-        model_weights_path=Model(
-            model_id="f6b26b93ecc842319d0733711523f22e"
-        ).get_local_copy(),
-        production_mode=True,
-    )
-
-    # Get historical data
-    xy_data = pd.read_csv(
-        glob(
-            Dataset.get(
-                dataset_name="xy_data",
-                dataset_project="amplify",
-            ).get_local_copy()
-            + "/**"
-        )[0],
-        index_col=0,
-    )
-
-    # (x_train, y_train), (x_val, y_val), (x_test, y_test), norm_layer = DataSplit(
-    #     xy_data,
-    # ).split_data()
-
-    # model.evaluate(x_val, y_val, verbose=1)
-    # model.evaluate(x_test, y_test, verbose=1)
-
-    return model, xy_data
+server = app.server
 
 
-def historical_data(xy_data, model):
-    """ "This uses validation and test portion of the existing historical data"""
-    i = np.random.default_rng().integers(
-        xy_data.shape[0] - 0.2 * xy_data.shape[0], xy_data.shape[0] - 48
-    )
-    y_preds = model.predict(
-        np.reshape(
-            np.array(
-                xy_data.iloc[i : i + 48].drop(
-                    ["True Power (kW) solar", "True Power (kW) usage"], axis=1
-                )
-            ),
-            (1, 48, 7),
-        )
-    )
+# Load the model
+model = YeetLSTMv2(
+    n_series_len=48,
+    n_series_ft=7,
+    n_series_out=2,
+    n_lstm=400,
+    model_weights_path=Model(
+        model_id="f6b26b93ecc842319d0733711523f22e"
+    ).get_local_copy(),
+    production_mode=True,
+)
 
-    fig = px.line(
-        xy_data.iloc[i : i + 48],
-        x=xy_data.iloc[i : i + 48].index,
-        y=[
-            y_preds[0, :, 0].T,
-            y_preds[0, :, 1].T,
-            "True Power (kW) solar",
-            "True Power (kW) usage",
-        ],
-        labels={
-            "y": "Power (kW)",
-            "x": "Date and Time",
-            "variable": "",
-        },
-        color_discrete_sequence=px.colors.qualitative.D3,
-    )
+# Get historical data
+xy_data = pd.read_csv(
+    glob(
+        Dataset.get(
+            dataset_name="xy_data",
+            dataset_project="amplify",
+        ).get_local_copy()
+        + "/**"
+    )[0],
+    index_col=0,
+)
 
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    return fig
+# (x_train, y_train), (x_val, y_val), (x_test, y_test), norm_layer = DataSplit(
+#     xy_data,
+# ).split_data()
+
+# model.evaluate(x_val, y_val, verbose=1)
+# model.evaluate(x_test, y_test, verbose=1)
 
 
-def forcast_data(model):
+@app.callback(
+    Output("forcast_data", "figure"), Input("interval-component", "n_intervals")
+)
+def forcast_data(n):
     """This will get data from OpenWeather OnceCall API"""
     preds = PredictData(model).forecast()
     preds.index = preds.index.tz_convert("US/Eastern")
@@ -115,21 +82,52 @@ def forcast_data(model):
     return fig
 
 
+@app.callback(Output("historical_data", "figure"), Input("date-slider", "value"))
+def historical_data(i):
+    """This uses validation and test portion of the existing historical data"""
+    y_preds = model.predict(
+        np.reshape(
+            np.array(
+                xy_data.iloc[i : i + 48].drop(
+                    ["True Power (kW) solar", "True Power (kW) usage"], axis=1
+                )
+            ),
+            (1, 48, 7),
+        )
+    )
+
+    fig = px.line(
+        xy_data.iloc[i : i + 48],
+        x=xy_data.iloc[i : i + 48].index,
+        y=[
+            y_preds[0, :, 0].T,
+            y_preds[0, :, 1].T,
+            "True Power (kW) solar",
+            "True Power (kW) usage",
+        ],
+        labels={
+            "value": "Power (kW)",
+            "x": "Date and Time",
+            "variable": "",
+        },
+        color_discrete_sequence=px.colors.qualitative.D3,
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    return fig
+
+
 ### Dash App Stuff ###
 ### -------------- ###
-
-app = Dash(
-    __name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.ZEPHYR]
-)
-
-server = app.server
 
 LOGO = "https://images.plot.ly/logo/new-branding/plotly-logomark.png"
 
 nav = dbc.Nav(
     [
-        dbc.NavItem(dbc.NavLink("Forcast", active=True, href="#")),
-        dbc.NavItem(dbc.NavLink("Historical", active=False, href="#")),
+        dbc.NavItem(dbc.NavLink("Prediction", active=True, href="#")),
+        # dbc.NavItem(dbc.NavLink("Historical", active=False, href="#")),
     ],
     pills=True,
     className="g-0 ms-auto flex-nowrap mt-3 mt-md-0",
@@ -178,23 +176,35 @@ def toggle_navbar_collapse(n, is_open):
     return is_open
 
 
-model, xy_data = clearml_setup()
 dashboard = dbc.Container(
     [
         html.Div(
-            html.H4("Power Generation and Usage Predictions"),
-            className="mt-5 mx-auto",
-        ),
-        html.Div(
             id="graph_wrapper",
             children=[
-                dcc.Graph(id="forcast-data", figure=forcast_data(model)),
-                dcc.Graph(id="historical-data", figure=historical_data(xy_data, model)),
+                html.H4(
+                    "Forcast Power Generation and Usage Predictions",
+                    className="mt-3",
+                    style={"textAlign": "center"},
+                ),
+                dcc.Graph(id="forcast_data"),
+                html.H4(
+                    "Historical Power Generation and Usage Predictions",
+                    className="mt-3",
+                    style={"textAlign": "center"},
+                ),
+                dcc.Graph(id="historical_data"),
             ],
         ),
         html.Div(
             [
-                dbc.Button("Predict", color="primary", href="/"),
+                dcc.Slider(
+                    min=int(xy_data.shape[0] - 0.2 * xy_data.shape[0]),
+                    max=int(xy_data.shape[0] - 48),
+                    value=int(xy_data.shape[0] * 0.9 - 24),
+                    step=None,
+                    id="date-slider",
+                    marks=None,
+                )
             ],
             className="d-grid gap-2 col-6 mx-auto",
         ),
@@ -215,18 +225,13 @@ footer = dbc.Navbar(
     className="fixed-bottom",
 )
 
+counter = dcc.Interval(
+    id="interval-component",
+    interval=15 * 60 * 1000,  # update every 5 minutes
+    n_intervals=0,
+)
 
-def serve_layout():
-    return html.Div(
-        [
-            navbar,
-            dashboard,
-            footer,
-        ]
-    )
-
-
-app.layout = serve_layout
+app.layout = html.Div([navbar, dashboard, footer, counter])
 
 if __name__ == "__main__":
     app.run_server(debug=True)
