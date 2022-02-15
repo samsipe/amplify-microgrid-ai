@@ -23,7 +23,7 @@ data_dir = glob(
 
 xy_data = pd.read_csv(data_dir, index_col=0)
 
-#TODO: remove?
+# TODO: remove?
 (x_train, y_train), (x_val, y_val), (x_test, y_test), norm_layer = DataSplit(
     xy_data,
     sequence=False,
@@ -31,25 +31,23 @@ xy_data = pd.read_csv(data_dir, index_col=0)
 
 
 model_path = Model(model_id="f6b26b93ecc842319d0733711523f22e").get_local_copy()
-print(model_path)
-model = YeetLSTMv2(n_series_len=48, n_series_ft=7, n_series_out=2, n_lstm=400, model_weights_path=model_path)
+#print(model_path)
+model = YeetLSTMv2(n_series_len=48, n_series_ft=7, n_series_out=2, n_lstm=400, model_weights_path=model_path, production_mode=True)
 
-#TODO: remove?
+# TODO: remove?
 # model.evaluate(x_val, y_val, verbose=1)
 # model.evaluate(x_test, y_test, verbose=1)
+
 
 def add_data(xy_data, model):
     i = np.random.default_rng().integers(0, xy_data.shape[0] - 48)
     y_preds = model.predict(
         np.reshape(
-            np.array(
-                xy_data.iloc[i : i + 48].drop(
-                    ["True Power (kW) solar", "True Power (kW) usage"], axis=1
-                )
-            ),
+            np.array(xy_data.iloc[i : i + 48].drop(["True Power (kW) solar", "True Power (kW) usage"], axis=1)),
             (1, 48, 7),
         )
     )
+
 
 def predict_data(model):
 
@@ -69,9 +67,7 @@ def predict_data(model):
     return fig
 
 
-app = Dash(
-    __name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.ZEPHYR]
-)
+app = Dash(__name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.ZEPHYR])
 
 server = app.server
 

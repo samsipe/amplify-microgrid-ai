@@ -1,3 +1,4 @@
+from math import prod
 import os
 
 import tensorflow as tf
@@ -487,6 +488,7 @@ class YeetLSTMv1(IModel):
         dropout=0.25,
         batch=1,
         epoch=50,
+        production_mode=False,
     ):
         """Initialize model"""
         IModel.__init__(
@@ -501,6 +503,7 @@ class YeetLSTMv1(IModel):
             dropout=dropout,
             batch=batch,
             epoch=epoch,
+            production_mode=production_mode,
         )
 
         # CONSTANTS
@@ -618,6 +621,7 @@ class YeetLSTMv2(IModel):
         batch=1,
         epoch=100,
         kernel_regularizer="l2",
+        production_mode=False,
         model_weights_path: str = None,
     ):
         """Initialize model"""
@@ -633,6 +637,7 @@ class YeetLSTMv2(IModel):
             dropout=dropout,
             batch=batch,
             epoch=epoch,
+            production_mode=production_mode,
         )
 
         # CONSTANTS
