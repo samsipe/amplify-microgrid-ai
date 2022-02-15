@@ -45,13 +45,15 @@ class IModel:
         dropout=0.25,
         batch=1,
         epoch=50,
+        production_mode=False,
     ):
         """
         Create an empty model
         """
-        self.model = None
+        self.model: Model = None
         self.model_name = model_name
         self.history = None
+        self.production_mode = production_mode
 
         # weight save name
         if model_id:
@@ -159,7 +161,7 @@ class IModel:
         """
         if self.model:
             self.model.summary()
-            # keras.utils.plot_model(self.model, show_shapes=True, show_layer_names=False)
+            keras.utils.plot_model(self.model, show_shapes=True, show_layer_names=False)
 
     def create_model(self):
         """
@@ -208,6 +210,40 @@ class IModel:
         if self.model:
             return self.model.predict(x_test)
 
+    def evaluate(
+        self,
+        x=None,
+        y=None,
+        batch_size=None,
+        verbose=1,
+        sample_weight=None,
+        steps=None,
+        callbacks=None,
+        max_queue_size=10,
+        workers=1,
+        use_multiprocessing=False,
+        return_dict=False,
+        **kwargs,
+    ):
+        """
+        Evaluate the model using the keras.Model.evaluate() function
+        """
+        if self.model:
+            return self.model.evaluate(
+                x=x,
+                y=y,
+                batch_size=batch_size,
+                sample_weight=sample_weight,
+                verbose=verbose,
+                steps=steps,
+                callbacks=callbacks,
+                max_queue_size=max_queue_size,
+                worksers=workers,
+                use_multiprocessing=use_multiprocessing,
+                return_dict=return_dict,
+                **kwargs,
+            )
+
 
 ### Test Models Below ###
 
@@ -225,21 +261,27 @@ class SimpleLSTM_1(IModel):
         n_series_ft=6,
         n_series_out=1,
         activation_f="tanh",
+        batch=1,
+        epoch=50,
+        production_mode=False,
     ):
         """Initialize model"""
-        IModel.__init__(self, model_name="SimpleLSTM_1")
+        IModel.__init__(self, model_name="SimpleLSTM_1", norm_layer=norm_layer, production_mode=production_mode, batch=batch, epoch=epoch)
         self.n_layer = n_layer
         self.n_series_len = n_series_len
         self.n_series_ft = n_series_ft
         self.n_series_out = n_series_out
         self.activation_f = activation_f
-        self.norm_layer = norm_layer
+
+        self.set_hyper_param()
 
         # model callbacks
         self.reduce_lr = keras.callbacks.LearningRateScheduler(lambda x: 1e-3 * 0.90 ** x)
 
-        self.set_hyper_param()
         self.create_model()
+
+        if not self.production_mode:
+            self.display_model()
 
     def set_hyper_param(self, epoch=30, batch_size=10):
         """
@@ -256,11 +298,9 @@ class SimpleLSTM_1(IModel):
         """
         Create the model
         """
-        # norm_input = Input(shape=(self.n_series_len, self.n_series_ft))
-        # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
+        model.add(self.norm_layer)
         model.add(
             LSTM(
                 self.n_layer,
@@ -271,11 +311,6 @@ class SimpleLSTM_1(IModel):
         )
         model.add(TimeDistributed(Dense(self.n_series_out)))
         self.model = model
-        # norm_input = Input(shape=(self.n_series_len, self.n_series_ft))
-        # lstm_input = self.norm_layer(norm_input)
-        # lstm_layer = LSTM(self.n_layer, activation=self.activation_f, return_sequences=True)(lstm_input)
-        # out = TimeDistributed(Dense(self.n_series_out))(lstm_layer)
-        # self.model = Model(inputs=lstm_input, outputs=out)
         return self.model
 
     def train_model(self, x_train, y_train, x_val, y_val):
@@ -319,72 +354,63 @@ class MultiLayerLSTM(IModel):
         n_series_ft=6,
         n_series_out=1,
         activation_f="tanh",
-        dropout_rate=0.25,
+        dropout=0.25,
+        lr_factor=0.1,
+        lr_patience=5,
+        es_patience=None,
+        min_l_rate=1e-8,
+        l_rate=0.001,
+        batch=10,
+        epoch=30,
+        production_mode=False,
     ):
         """Initialize model"""
-        IModel.__init__(self, model_name="MultiLayerLSTM")
+        IModel.__init__(
+            self,
+            model_name="MultiLayerLSTM",
+            production_mode=production_mode,
+            norm_layer=norm_layer,
+            dropout=dropout,
+            lr_factor=lr_factor,
+            lr_patience=lr_patience,
+            es_patience=es_patience,
+            min_l_rate=min_l_rate,
+            l_rate=l_rate,
+            batch=batch,
+            epoch=epoch,
+        )
         self.n_layer = n_layer
         self.n_series_len = n_series_len
         self.n_series_ft = n_series_ft
         self.n_series_out = n_series_out
         self.activation_f = activation_f
-        self.norm_layer = norm_layer
-        self.dropout_rate = dropout_rate
 
         # hyper param
-        FACTOR = 0.1
-        PATIENCE = 5
+        patience_c = 3
+        self.es_patience = self.es_patience if self.es_patience else (lr_patience * patience_c)
 
         # model callbacks
-        self.model_cp = tf.keras.callbacks.ModelCheckpoint(
-            "../models/multi_layer_lstm_weights.hdf5",
-            monitor="val_loss",
-            mode="min",
-            save_best_only=True,
-            save_weights_only=True,
-            verbose=1,
-        )
-        self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss",
-            mode="min",
-            factor=FACTOR,
-            patience=PATIENCE,
-            min_lr=1e-8,
-            verbose=1,
-        )
-        self.early_stop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=(3 * PATIENCE), verbose=1)
-        self.tensorboard_logs = tf.keras.callbacks.TensorBoard("../logs/", histogram_freq=1)
+        self.setup_callbacks()
         self.callbacks = [
-            self.model_cp,
-            self.reduce_lr,
-            self.early_stop,
-            self.tensorboard_logs,
+            self.tensor_board_cb,
+            self.model_checkpoint_cb,
+            self.early_stopping_cb,
+            self.reduce_lr_on_plateau_cb,
         ]
 
-        self.set_hyper_param()
         self.create_model()
 
-    def set_hyper_param(self, epoch=30, batch_size=10):
-        """
-        Set hyperparameters for training
-
-        Arguments:
-            epoch (int)         : training epoch
-            batch_size (int)    : training batch size
-        """
-        self.epoch = epoch
-        self.batch_size = batch_size
+        if not self.production_mode:
+            self.display_model()
 
     def create_model(self):
         """
         Create the model
         """
-        # norm_input = Input(shape=(self.n_series_len, self.n_series_ft))
-        # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
-        model.add(Dropout(rate=self.dropout_rate))
+        model.add(self.norm_layer)
+        model.add(Dropout(rate=self.dropout))
         model.add(Dense(self.n_series_ft, activation="relu"))
         model.add(
             LSTM(
@@ -396,11 +422,6 @@ class MultiLayerLSTM(IModel):
         )
         model.add(TimeDistributed(Dense(self.n_series_out)))
         self.model = model
-        # norm_input = Input(shape=(self.n_series_len, self.n_series_ft))
-        # lstm_input = self.norm_layer(norm_input)
-        # lstm_layer = LSTM(self.n_layer, activation=self.activation_f, return_sequences=True)(lstm_input)
-        # out = TimeDistributed(Dense(self.n_series_out))(lstm_layer)
-        # self.model = Model(inputs=lstm_input, outputs=out)
         return self.model
 
     def train_model(self, x_train, y_train, x_val, y_val):
@@ -412,9 +433,9 @@ class MultiLayerLSTM(IModel):
 
         # Compile model
         self.model.compile(
-            tf.optimizers.Adam(learning_rate=0.001),
+            tf.optimizers.Adam(learning_rate=self.l_rate),
             loss=keras.losses.Huber(),
-            metrics=[keras.metrics.RootMeanSquaredError()],
+            metrics=self.metrics,
         )
 
         # Fit Model
@@ -422,7 +443,7 @@ class MultiLayerLSTM(IModel):
             x=x_train,
             y=y_train,
             epochs=self.epoch,
-            batch_size=self.batch_size,
+            batch_size=self.batch,
             validation_data=(x_val, y_val),
             shuffle=False,
             callbacks=self.callbacks,
@@ -441,7 +462,7 @@ class MultiLayerLSTM(IModel):
             prediction output of model
         """
         if self.model:
-            self.model.load_weights("../models/multi_layer_lstm_weights.hdf5")
+            self.load_weights(self.model_weights_file_path)
             return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
 
 
@@ -452,7 +473,7 @@ class YeetLSTMv1(IModel):
 
     def __init__(
         self,
-        norm_layer: Normalization = Normalization(mean=0.0, variance=1.0),
+        norm_layer: Normalization = Normalization(axis=-1),
         n_series_len=48,
         n_series_ft=6,
         n_series_out=1,
@@ -508,7 +529,9 @@ class YeetLSTMv1(IModel):
         ]
 
         self.create_model()
-        self.display_model()
+
+        if not self.production_mode:
+            self.display_model()
 
     def create_model(self):
         """
@@ -569,7 +592,7 @@ class YeetLSTMv1(IModel):
             prediction output of model
         """
         if self.model:
-            self.model.load_weights(self.model_weights_file_path)
+            self.load_weights(self.model_weights_file_path)
             return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
 
 
@@ -639,7 +662,9 @@ class YeetLSTMv2(IModel):
         ]
 
         self.create_model()
-        self.display_model()
+
+        if not self.production_mode:
+            self.display_model()
 
         self.load_weights(model_weights_path)
 
