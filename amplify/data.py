@@ -10,7 +10,7 @@ from glob import glob
 from clearml import Dataset
 from pysolar.radiation import get_radiation_direct
 from pysolar.solar import get_altitude, get_azimuth
-from tensorflow.keras.layers import Normalization
+from keras.layers import Normalization
 
 # TODO: replace prints with logging
 class DataGenerator:
@@ -500,18 +500,19 @@ class DataSplit:
         # train_split[0] -> features
         # train_split[1] -> solar
         # train_split[2] -> usage
-        
+
+
 class PredictData:
     """
-            1) Takes in weather prediction data (API connection)
-            2) Runs that data through weather_cleaner method to clean the data
-            3) Runs additional_features method to add irradiance and azimuth
-            4) Outputs clean features of weather prediction + pysolar for 48hrs
-            5) Split datetime index to a separate df
-            6) Run model.predict(weather_prediction)
-            7) Combine datetime df with predict output
-            8) ???
-            9) Profit
+    1) Takes in weather prediction data (API connection)
+    2) Runs that data through weather_cleaner method to clean the data
+    3) Runs additional_features method to add irradiance and azimuth
+    4) Outputs clean features of weather prediction + pysolar for 48hrs
+    5) Split datetime index to a separate df
+    6) Run model.predict(weather_prediction)
+    7) Combine datetime df with predict output
+    8) ???
+    9) Profit
     """
 
     def __init__(

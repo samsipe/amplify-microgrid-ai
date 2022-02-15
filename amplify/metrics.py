@@ -17,8 +17,6 @@ from sklearn.metrics import roc_auc_score
 # stuff:
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.preprocessing import sequence
 from keras import Input
 from sklearn.preprocessing import OneHotEncoder
 from keras.models import Sequential, Model
@@ -140,8 +138,8 @@ class DataEval:
             for m in metric_list[key]:
                 plt.plot(self.history.history[m])
             plt.ylabel(f"{key}")
-            plt.xlabel('epoch')
-            plt.legend(metric_list[key], loc='upper left')
+            plt.xlabel("epoch")
+            plt.legend(metric_list[key], loc="upper left")
             plt.show()
 
     def _PlotDistribution(self):
@@ -175,14 +173,16 @@ class DataEval:
         # TODO: make better checks
 
         plt.figure(figsize=(20, 10))
-        plt.title(f"Model: {self.model_name} | Prediction mean_absolute_percentage_error")
+        plt.title(
+            f"Model: {self.model_name} | Prediction mean_absolute_percentage_error"
+        )
         y_mape_0 = CalcMAPE(self.y_test, self.y_pred, axis=0)
         y_mape_1 = CalcMAPE(self.y_test, self.y_pred, axis=1)
         plt.plot(y_mape_0)
         plt.plot(y_mape_1)
         plt.ylabel("Percent Error")
         plt.xlabel("Observation/Hour")
-        plt.legend(['mape_by_hour', 'mape_by_observation'], loc='upper left')
+        plt.legend(["mape_by_hour", "mape_by_observation"], loc="upper left")
         plt.show()
 
         plt.figure(figsize=(20, 10))
@@ -193,7 +193,7 @@ class DataEval:
         plt.plot(y_mae_1)
         plt.ylabel("kW")
         plt.xlabel("Observation/Hour")
-        plt.legend(['mae_by_hour', 'mae_by_observation'], loc='upper left')
+        plt.legend(["mae_by_hour", "mae_by_observation"], loc="upper left")
         plt.show()
 
     def PlotRandomPlots(self, num_plot: int):
@@ -213,7 +213,7 @@ class DataEval:
             plt.title(f"Model: {self.model_name} | Prediction, Observation #{x}")
             plt.plot(self.y_pred[x])
             plt.plot(self.y_test[x])
-            plt.ylabel('kW')
-            plt.xlabel('hour')
-            plt.legend(['y prediction', 'y actual'], loc='upper left')
+            plt.ylabel("kW")
+            plt.xlabel("hour")
+            plt.legend(["y prediction", "y actual"], loc="upper left")
             plt.show()

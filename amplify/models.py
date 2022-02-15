@@ -2,8 +2,7 @@ import os
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.preprocessing import sequence
+from keras.preprocessing import sequence
 from keras import Input
 from sklearn.preprocessing import OneHotEncoder
 from keras.models import Sequential, Model
@@ -33,8 +32,8 @@ class IModel:
         self,
         model_name="unknown",
         model_id=None,
-        log_dir=os.path.join('../', 'logs'),
-        model_dir=os.path.join('../', 'models'),
+        log_dir=os.path.join("../", "logs"),
+        model_dir=os.path.join("../", "models"),
         norm_layer=Normalization(),
         lr_factor=0.9,
         lr_patience=3,
@@ -65,8 +64,12 @@ class IModel:
         # files
         self.model_dir = model_dir
         self.log_dir = log_dir
-        self.model_weights_file_name = self.model_name + '_weights_' + dt_string + '.hdf5'
-        self.model_weights_file_path = os.path.abspath(os.path.join(model_dir, self.model_weights_file_name))
+        self.model_weights_file_name = (
+            self.model_name + "_weights_" + dt_string + ".hdf5"
+        )
+        self.model_weights_file_path = os.path.abspath(
+            os.path.join(model_dir, self.model_weights_file_name)
+        )
 
         # model param
         self.norm_layer = norm_layer
@@ -90,7 +93,11 @@ class IModel:
         self.early_stopping_cb: tf.keras.callbacks.Callback = None
 
         # metrics
-        self.metrics = [keras.metrics.RootMeanSquaredError(), keras.metrics.MeanSquaredError(), keras.metrics.MeanAbsoluteError()]
+        self.metrics = [
+            keras.metrics.RootMeanSquaredError(),
+            keras.metrics.MeanSquaredError(),
+            keras.metrics.MeanAbsoluteError(),
+        ]
 
     def set_hyper_param(
         self,
@@ -131,12 +138,24 @@ class IModel:
         """
         self.tensor_board_cb = tf.keras.callbacks.TensorBoard(self.log_dir)
         self.model_checkpoint_cb = tf.keras.callbacks.ModelCheckpoint(
-            self.model_weights_file_path, monitor="val_loss", mode='min', save_best_only=True, save_weights_only=True, verbose=1
+            self.model_weights_file_path,
+            monitor="val_loss",
+            mode="min",
+            save_best_only=True,
+            save_weights_only=True,
+            verbose=1,
         )
         self.reduce_lr_on_plateau_cb = tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='val_loss', mode='min', factor=self.lr_factor, patience=self.lr_patience, min_lr=self.min_l_rate, verbose=0
+            monitor="val_loss",
+            mode="min",
+            factor=self.lr_factor,
+            patience=self.lr_patience,
+            min_lr=self.min_l_rate,
+            verbose=0,
         )
-        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode='min', patience=self.es_patience, verbose=1)
+        self.early_stopping_cb = tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss", mode="min", patience=self.es_patience, verbose=1
+        )
 
     def display_model(self):
         """
@@ -201,8 +220,16 @@ class SimpleLSTM_1(IModel):
     Simple LSTM Model.
     """
 
-    def __init__(self, norm_layer, n_layer=1, n_series_len=48, n_series_ft=6, n_series_out=1, activation_f='tanh'):
-        """ Initialize model """
+    def __init__(
+        self,
+        norm_layer,
+        n_layer=1,
+        n_series_len=48,
+        n_series_ft=6,
+        n_series_out=1,
+        activation_f="tanh",
+    ):
+        """Initialize model"""
         IModel.__init__(self, model_name="SimpleLSTM_1")
         self.n_layer = n_layer
         self.n_series_len = n_series_len
@@ -212,7 +239,9 @@ class SimpleLSTM_1(IModel):
         self.norm_layer = norm_layer
 
         # model callbacks
-        self.reduce_lr = keras.callbacks.LearningRateScheduler(lambda x: 1e-3 * 0.90 ** x)
+        self.reduce_lr = keras.callbacks.LearningRateScheduler(
+            lambda x: 1e-3 * 0.90**x
+        )
 
         self.set_hyper_param()
         self.create_model()
@@ -236,9 +265,16 @@ class SimpleLSTM_1(IModel):
         # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
         model.add(
-            LSTM(self.n_layer, activation=self.activation_f, input_shape=(self.n_series_len, self.n_series_ft), return_sequences=True)
+            self.norm_layer
+        )  # , input_shape=(self.n_series_len, self.n_series_ft))
+        model.add(
+            LSTM(
+                self.n_layer,
+                activation=self.activation_f,
+                input_shape=(self.n_series_len, self.n_series_ft),
+                return_sequences=True,
+            )
         )
         model.add(TimeDistributed(Dense(self.n_series_out)))
         self.model = model
@@ -258,7 +294,9 @@ class SimpleLSTM_1(IModel):
 
         # Compile model
         self.model.compile(
-            tf.optimizers.Adam(learning_rate=0.001), loss=keras.losses.Huber(), metrics=[keras.metrics.RootMeanSquaredError()]
+            tf.optimizers.Adam(learning_rate=0.001),
+            loss=keras.losses.Huber(),
+            metrics=[keras.metrics.RootMeanSquaredError()],
         )
 
         # Fit Model
@@ -280,8 +318,17 @@ class MultiLayerLSTM(IModel):
     MultiLayer LSTM Model.
     """
 
-    def __init__(self, norm_layer, n_layer=1, n_series_len=48, n_series_ft=6, n_series_out=1, activation_f='tanh', dropout_rate=0.25):
-        """ Initialize model """
+    def __init__(
+        self,
+        norm_layer,
+        n_layer=1,
+        n_series_len=48,
+        n_series_ft=6,
+        n_series_out=1,
+        activation_f="tanh",
+        dropout_rate=0.25,
+    ):
+        """Initialize model"""
         IModel.__init__(self, model_name="MultiLayerLSTM")
         self.n_layer = n_layer
         self.n_series_len = n_series_len
@@ -299,22 +346,31 @@ class MultiLayerLSTM(IModel):
         self.model_cp = tf.keras.callbacks.ModelCheckpoint(
             "../models/multi_layer_lstm_weights.hdf5",
             monitor="val_loss",
-            mode='min',
+            mode="min",
             save_best_only=True,
             save_weights_only=True,
             verbose=1,
         )
         self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='val_loss',
-            mode='min',
+            monitor="val_loss",
+            mode="min",
             factor=FACTOR,
             patience=PATIENCE,
             min_lr=1e-8,
             verbose=1,
         )
-        self.early_stop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode='min', patience=(3 * PATIENCE), verbose=1)
-        self.tensorboard_logs = tf.keras.callbacks.TensorBoard('../logs/', histogram_freq=1)
-        self.callbacks = [self.model_cp, self.reduce_lr, self.early_stop, self.tensorboard_logs]
+        self.early_stop = tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss", mode="min", patience=(3 * PATIENCE), verbose=1
+        )
+        self.tensorboard_logs = tf.keras.callbacks.TensorBoard(
+            "../logs/", histogram_freq=1
+        )
+        self.callbacks = [
+            self.model_cp,
+            self.reduce_lr,
+            self.early_stop,
+            self.tensorboard_logs,
+        ]
 
         self.set_hyper_param()
         self.create_model()
@@ -338,11 +394,18 @@ class MultiLayerLSTM(IModel):
         # seq_input = self.norm_layer(norm_input)
         model = Sequential()
         model.add(Input(shape=(self.n_series_len, self.n_series_ft)))
-        model.add(self.norm_layer)  # , input_shape=(self.n_series_len, self.n_series_ft))
-        model.add(Dropout(rate=self.dropout_rate))
-        model.add(Dense(self.n_series_ft, activation='relu'))
         model.add(
-            LSTM(self.n_layer, activation=self.activation_f, input_shape=(self.n_series_len, self.n_series_ft), return_sequences=True)
+            self.norm_layer
+        )  # , input_shape=(self.n_series_len, self.n_series_ft))
+        model.add(Dropout(rate=self.dropout_rate))
+        model.add(Dense(self.n_series_ft, activation="relu"))
+        model.add(
+            LSTM(
+                self.n_layer,
+                activation=self.activation_f,
+                input_shape=(self.n_series_len, self.n_series_ft),
+                return_sequences=True,
+            )
         )
         model.add(TimeDistributed(Dense(self.n_series_out)))
         self.model = model
@@ -362,7 +425,9 @@ class MultiLayerLSTM(IModel):
 
         # Compile model
         self.model.compile(
-            tf.optimizers.Adam(learning_rate=0.001), loss=keras.losses.Huber(), metrics=[keras.metrics.RootMeanSquaredError()]
+            tf.optimizers.Adam(learning_rate=0.001),
+            loss=keras.losses.Huber(),
+            metrics=[keras.metrics.RootMeanSquaredError()],
         )
 
         # Fit Model
@@ -390,7 +455,9 @@ class MultiLayerLSTM(IModel):
         """
         if self.model:
             self.model.load_weights("../models/multi_layer_lstm_weights.hdf5")
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
 
 class YeetLSTMv1(IModel):
@@ -405,7 +472,7 @@ class YeetLSTMv1(IModel):
         n_series_ft=6,
         n_series_out=1,
         n_lstm=None,
-        activation_fn='relu',
+        activation_fn="relu",
         lr_factor=0.9,
         lr_patience=None,
         es_patience=None,
@@ -415,7 +482,7 @@ class YeetLSTMv1(IModel):
         batch=1,
         epoch=50,
     ):
-        """ Initialize model """
+        """Initialize model"""
         IModel.__init__(
             self,
             model_name="yeet_lstm_v1",
@@ -443,12 +510,19 @@ class YeetLSTMv1(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+        self.es_patience = (
+            self.es_patience if self.es_patience else patience_c * self.batch
+        )
 
         # callbacks
         self.setup_callbacks()
 
-        self.callbacks = [self.tensor_board_cb, self.model_checkpoint_cb, self.early_stopping_cb, self.reduce_lr_on_plateau_cb]
+        self.callbacks = [
+            self.tensor_board_cb,
+            self.model_checkpoint_cb,
+            self.early_stopping_cb,
+            self.reduce_lr_on_plateau_cb,
+        ]
 
         self.create_model()
         self.display_model()
@@ -468,8 +542,12 @@ class YeetLSTMv1(IModel):
 
         decoder_inputs = RepeatVector(self.n_series_len)(encoder_outputs1[0])
 
-        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(decoder_inputs, initial_state=encoder_states1)
-        decoder_outputs1 = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn))(decoder_l1)
+        decoder_l1 = LSTM(self.n_lstm_layers, return_sequences=True)(
+            decoder_inputs, initial_state=encoder_states1
+        )
+        decoder_outputs1 = TimeDistributed(
+            Dense(self.n_series_out, activation=self.activation_fn)
+        )(decoder_l1)
 
         self.model = Model(norm_inputs, decoder_outputs1)
         return self.model
@@ -482,7 +560,11 @@ class YeetLSTMv1(IModel):
             return self.history
 
         # Compile model
-        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.MeanSquaredError(), metrics=self.metrics)
+        self.model.compile(
+            tf.optimizers.Adam(learning_rate=self.l_rate),
+            loss=keras.losses.MeanSquaredError(),
+            metrics=self.metrics,
+        )
 
         # Fit Model
         self.history = self.model.fit(
@@ -509,7 +591,9 @@ class YeetLSTMv1(IModel):
         """
         if self.model:
             self.model.load_weights(self.model_weights_file_path)
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
 
 class YeetLSTMv2(IModel):
@@ -524,7 +608,7 @@ class YeetLSTMv2(IModel):
         n_series_ft=7,
         n_series_out=1,
         n_lstm=None,
-        activation_fn='relu',
+        activation_fn="relu",
         lr_factor=0.8,
         lr_patience=2,
         es_patience=25,
@@ -533,10 +617,10 @@ class YeetLSTMv2(IModel):
         dropout=0.20,
         batch=1,
         epoch=100,
-        kernel_regularizer='l2',
+        kernel_regularizer="l2",
         model_weights_path: str = None,
     ):
-        """ Initialize model """
+        """Initialize model"""
         IModel.__init__(
             self,
             model_name="yeet_lstm_v2",
@@ -565,12 +649,19 @@ class YeetLSTMv2(IModel):
 
         # hyper param
         # *NOTE: IModel has factor, patience, l_rate, dropout, batch, epoch
-        self.es_patience = self.es_patience if self.es_patience else patience_c * self.batch
+        self.es_patience = (
+            self.es_patience if self.es_patience else patience_c * self.batch
+        )
 
         # callbacks
         self.setup_callbacks()
         self.lr_scheduler_cb = tf.keras.callbacks.LearningRateScheduler(self.scheduler)
-        self.callbacks = [self.tensor_board_cb, self.model_checkpoint_cb, self.early_stopping_cb, self.lr_scheduler_cb]
+        self.callbacks = [
+            self.tensor_board_cb,
+            self.model_checkpoint_cb,
+            self.early_stopping_cb,
+            self.lr_scheduler_cb,
+        ]
 
         self.create_model()
         self.display_model()
@@ -584,7 +675,13 @@ class YeetLSTMv2(IModel):
         inputs = Input(shape=(self.n_series_len, self.n_series_ft))
         x = self.norm_layer(inputs)
         x = LSTM(self.n_lstm_layers, return_sequences=True, dropout=self.dropout)(x)
-        outputs = TimeDistributed(Dense(self.n_series_out, activation=self.activation_fn, kernel_regularizer=self.kernel_regularizer))(x)
+        outputs = TimeDistributed(
+            Dense(
+                self.n_series_out,
+                activation=self.activation_fn,
+                kernel_regularizer=self.kernel_regularizer,
+            )
+        )(x)
 
         self.model = Model(inputs, outputs)
         return self.model
@@ -597,7 +694,11 @@ class YeetLSTMv2(IModel):
             return self.history
 
         # Compile model
-        self.model.compile(tf.optimizers.Adam(learning_rate=self.l_rate), loss=keras.losses.MeanSquaredError(), metrics=self.metrics)
+        self.model.compile(
+            tf.optimizers.Adam(learning_rate=self.l_rate),
+            loss=keras.losses.MeanSquaredError(),
+            metrics=self.metrics,
+        )
 
         # Fit Model
         self.history = self.model.fit(
@@ -624,7 +725,9 @@ class YeetLSTMv2(IModel):
         """
         if self.model:
             self.model.load_weights(self.model_weights_file_path)
-            return self.model.predict(x_test, verbose=1, batch_size=1, callbacks=self.callbacks)
+            return self.model.predict(
+                x_test, verbose=1, batch_size=1, callbacks=self.callbacks
+            )
 
     def scheduler(self, epoch):
         """
