@@ -513,15 +513,15 @@ class DataSplit:
 
 class PredictData:
     """
-                                1) Takes in weather prediction data (API connection)
-                                2) Cleans raw API -> JSON data
-                                3) Adds day_of_week, irradiance, and azimuth
-                                4) Outputs clean features of weather prediction + pysolar for 48hrs
-                                5) a) Split datetime index to a separate df,
-                                   b) Run model.predict(forecast),
-                                   c) Combine datetime df with predict output
-                                8) ???
-                                9) Profit
+                                    1) Takes in weather prediction data (API connection)
+                                    2) Cleans raw API -> JSON data
+                                    3) Adds day_of_week, irradiance, and azimuth
+                                    4) Outputs clean features of weather prediction + pysolar for 48hrs
+                                    5) a) Split datetime index to a separate df,
+                                       b) Run model.predict(forecast),
+                                       c) Combine datetime df with predict output
+                                    8) ???
+                                    9) Profit
     """
 
     def __init__(
@@ -683,14 +683,18 @@ class PredictData:
         self, clean_weather, cyclical_features: list, lat: float, lon: float
     ):
         """
-        Cleans weather forecast, adds solar data, converts cyclical features to sin/cos
+        1) Cleans weather forecast
+        2) Adds solar data
+        3) Converts cyclical features to sin/cos
 
         Arguments:
             raw_forecast (dataframe) : a dataframe of weather data (required)
             cyclical_features (list) : list of columns to convert to sin/cos waveform (optional)
+            lat (float)              : latitude of location for weather forecast (optional)
+            lon (float)              : longitude of location for weather forecast (optional)
 
         Returns:
-            weather_data (dataframe) : a dataframe of raw weather data from the API pull
+            output_df (dataframe)    : a dataframe of clean weather, day of week, and solar data
         """
         self.output_df = clean_weather.copy()
         self.lat = lat
@@ -789,19 +793,30 @@ class PredictData:
 
         # Rename columns
         self.preds_df.rename(
-            columns={0: "Power Generated", 1: "Power Usage"}, inplace=True
+            columns={0: "Predicted Solar", 1: "Predicted Usage"}, inplace=True
         )
 
         # Set index on column dt
         self.preds_df.set_index("dt", inplace=True)
 
-        # Drop predictions into parquet file
-        ### needs work
-        # self.preds_df.to_parquet('/tmp/amplify/preds.parquet')
-
         return self.preds_df
 
     def _charging_calcs(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
+        """
+        1) Calculates net power.
+        2) Assigns and calculates billing rates/charges.
+        3) Adds and calculates new usage and billing with charging
+        4) Identifies lowest cost charging windows based on hrs_to_charge
+
+        Arguments:
+            preds_df (object)        : an object created from a model.fit method (required)
+            num_cars (int)           : num of cars to be charged (optional)
+            hrs_to_charge (int)      : how many hours each car will be charging
+            kw_to_charge (int)       : how many kWh are used for charging
+
+        Returns:
+            pred_df (dataframe)      : a dataframe of usage/solar, billing, and charging windows
+        """
         # Set variables for charging cost predictions
         self.df = preds_df.copy()
         self.num_cars = num_cars
@@ -812,7 +827,9 @@ class PredictData:
         self.df.index = self.df.index.tz_convert("US/Eastern")
 
         # Create column of power/usage difference
-        self.df["difference"] = self.df["Power Usage"] - self.df["Power Generated"]
+        self.df["Net Difference"] = (
+            self.df["Predicted Usage"] - self.df["Predicted Solar"]
+        )
 
         # Create day of week and hour columns for applying rates
         self.df["dow"] = self.df.index.strftime("%w").astype(int)
@@ -820,38 +837,41 @@ class PredictData:
 
         ## Set rates
         # Set off=peak price
-        self.df["price"] = 0.04801
+        self.df["Rate"] = 0.04801
 
         # Set super-off-peak
-        self.df.loc[(self.df.hr >= 0) & (self.df.hr < 6), "price"] = 0.02824
+        self.df.loc[(self.df.hr >= 0) & (self.df.hr < 6), "Rate"] = 0.02824
 
         # Set Peak rates
         self.df.loc[
             ((self.df.hr >= 14) & (self.df.hr < 18))
             & ((self.df.dow > 0) & (self.df.dow < 6)),
-            "price",
+            "Rate",
         ] = 0.14402
 
         # Drop unneeded columns
         self.df.drop(["dow", "hr"], axis=1, inplace=True)
 
         # Compute estimated cost for the hour
-        self.df["cost"] = self.df.difference * self.df.price
+        self.df["Predicted Net Cost"] = self.df.difference * self.df.price
 
         # Compute average cast of energy for the 48hr period
-        self.df["cost_avg"] = self.df.cost.sum() / len(self.df)
+        self.df["Average Predicted Cost"] = self.df.cost.sum() / len(self.df)
 
         # Calculate power usage including variables
-        self.df["charging"] = self.df.difference + (self.kw_to_charge * self.num_cars)
+        self.df["Predicted Usage While Charging"] = self.df.difference + (
+            self.kw_to_charge * self.num_cars
+        )
 
         # Calculate charging cost given variables
-        self.df["charging_cost"] = self.df.charging * self.df.cost
+        self.df["Predicted Cost While Charging"] = self.df.charging * self.df.cost
 
         # Roll through the number of hours needed for charging
         self.df["window"] = self.df.charging_cost.rolling(self.hrs_to_charge).sum()
 
         # Select optimum hours for charging
 
+        # Create empty df to collect best periods of charging
         self.charge = pd.DataFrame()
 
         # Loop through date stamps for best hours to charge
