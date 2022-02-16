@@ -1,16 +1,18 @@
+import json
+import os
 import sys
 import warnings
-import os
-import requests
-import json
+from glob import glob
+
 import numpy as np
 import pandas as pd
-
-from glob import glob
-from clearml import Dataset
+import requests
+from amplify.models import YeetLSTMv2
+from clearml import Dataset, Model
 from pysolar.radiation import get_radiation_direct
 from pysolar.solar import get_altitude, get_azimuth
-from keras.layers import Normalization
+from tensorflow.keras.layers import Normalization
+
 
 # TODO: replace prints with logging
 class DataGenerator:
@@ -91,10 +93,16 @@ class DataGenerator:
             & (self.weather_features is not None)
             & (self.building_features is not None)
         ):
-            # With data directories set, return the retrieved/cleaned/merged data
+            # With data directories set, download building data
+            self.building_data = self._load_building_data(
+                building_features=self.building_features
+            )
+            self.weather_data = self._load_weather_data()
+
+            # return the retrieved/cleaned/merged data
             return self._additional_features()
 
-    def _load_building_data(self):
+    def _load_building_data(self, building_features: list = ["True Power (kW)"]):
         """
         Load and format building data from file.
 
@@ -252,6 +260,7 @@ class DataGenerator:
             left_index=True,
             right_index=True,
         ).fillna(method="ffill")
+
         for feature in self.building_features:
             self.merged_data.rename(
                 columns={feature: str(feature) + " usage"}, inplace=True
@@ -504,15 +513,15 @@ class DataSplit:
 
 class PredictData:
     """
-    1) Takes in weather prediction data (API connection)
-    2) Runs that data through weather_cleaner method to clean the data
-    3) Runs additional_features method to add irradiance and azimuth
-    4) Outputs clean features of weather prediction + pysolar for 48hrs
-    5) Split datetime index to a separate df
-    6) Run model.predict(weather_prediction)
-    7) Combine datetime df with predict output
-    8) ???
-    9) Profit
+                        1) Takes in weather prediction data (API connection)
+                        2) Cleans raw API -> JSON data
+                        3) Adds day_of_week, irradiance, and azimuth
+                        4) Outputs clean features of weather prediction + pysolar for 48hrs
+                        5) a) Split datetime index to a separate df,
+                           b) Run model.predict(forecast),
+                           c) Combine datetime df with predict output
+                        8) ???
+                        9) Profit
     """
 
     def __init__(
@@ -520,6 +529,9 @@ class PredictData:
         model,
         lat: float = 39.9649,
         lon: float = -75.1396,
+        num_cars: int = 1,
+        hrs_to_charge: int = 3,
+        kw_to_charge: int = 7,
         features: list = ["dt", "temp", "clouds"],
         cyclical_features: list = ["azimuth", "day_of_week"],
         ow_api_key: str = os.environ.get("OW_API_KEY"),
@@ -531,6 +543,9 @@ class PredictData:
             model (array)            : model factors to apply during prediction (required)
             lat (float)              : latitude of location for weather forecast (optional)
             lon (float)              : longitude of location for weather forecast (optional)
+            num_cars (int)           : how many cars will be charged (optional)
+            hrs_to_charge (int)      : how many hours each car needs to be charged for (optional)
+            kw_to_charge (int)       : how many kW each car will draw per hour (optional)
             features (list)          : list of weather features to pull from API (optional)
             cyclical_features (list) : columns to convert to sin/cos waveform (optional)
             ow_api_key (str)         : string key for Open Weather API (optional)
@@ -540,12 +555,20 @@ class PredictData:
         self.cyclical_features = cyclical_features
         self.ow_api_key = ow_api_key
         self.model = model
+        self.num_cars = num_cars
+        self.hrs_to_charge = hrs_to_charge
+        self.kw_to_charge = kw_to_charge
 
     def forecast(self):
         """
         This is the main callable function. It runs the other functions
         in order, passing the results of one to the next, to return properly
         prepared weather forecast data.
+
+        All arguments come from the Class instantiation.
+
+        Returns:
+            pred_out (dataframe)    : y-prediction dataframe indexed to datetime
         """
 
         # Run method for API call to retrive data and convert JSON -> dataframe
@@ -572,7 +595,17 @@ class PredictData:
         # Run prediction
         self.pred_out = self._run_predict(model=self.model, features=self.all_features)
 
-        return self.pred_out
+        print("Info: Usage and Generation predictions complete!")
+
+        self.charting_df = self._charging_calcs(
+            preds_df=self.pred_out,
+            num_cars=self.num_cars,
+            hrs_to_charge=self.hrs_to_charge,
+            kw_to_charge=self.kw_to_charge,
+        )
+
+        print("Info: Costing predictions complete!")
+        return self.charting_df
 
     def _get_forecast(self, ow_api_key: str, lat: float, lon: float, features: str):
         """
@@ -583,6 +616,9 @@ class PredictData:
             lat (float)              : latitude of location for weather forecast (optional)
             lon (float)              : longitude of location for weather forecast (optional)
             features (list)          : list of weather features to pull from API (optional)
+
+        Returns:
+            weather_data (dataframe) : a dataframe of raw weather data from the API pull
         """
         self.lat, self.lon = lat, lon
         self.ow_api_key = ow_api_key
@@ -608,6 +644,16 @@ class PredictData:
         return self.weather_data
 
     def _forecast_clean(self, raw_forecast, cyclical_features: list):
+        """
+        Cleans weather forecast and creates columns to collect solar features and day of week
+
+        Arguments:
+            raw_forecast (dataframe) : a dataframe of weather data (required)
+            cyclical_features (list) : list of columns to convert to sin/cos waveform (optional)
+
+        Returns:
+            weather_data (dataframe) : a dataframe of clean weather data w/null columns for cyclical features
+        """
         self.weather_data = raw_forecast.copy()
         self.cyclical_features = cyclical_features
 
@@ -633,7 +679,19 @@ class PredictData:
         print("Info: Successfully cleaned forecast data!")
         return self.weather_data
 
-    def _additional_features(self, clean_weather, cyclical_features, lat, lon):
+    def _additional_features(
+        self, clean_weather, cyclical_features: list, lat: float, lon: float
+    ):
+        """
+        Cleans weather forecast, adds solar data, converts cyclical features to sin/cos
+
+        Arguments:
+            raw_forecast (dataframe) : a dataframe of weather data (required)
+            cyclical_features (list) : list of columns to convert to sin/cos waveform (optional)
+
+        Returns:
+            weather_data (dataframe) : a dataframe of raw weather data from the API pull
+        """
         self.output_df = clean_weather.copy()
         self.lat = lat
         self.lon = lon
@@ -643,6 +701,7 @@ class PredictData:
         self.date_list = list(self.output_df.index)
 
         for date in self.date_list:
+            # Set date datatypes to match for pysolar calls
             self.pydate = date.to_pydatetime()
             self.date = date
 
@@ -693,6 +752,18 @@ class PredictData:
         return self.output_df.round(2)
 
     def _run_predict(self, model, features):
+        """
+        1) Extracts datetime index from weather features.
+        2) Runs model.predict on weather forecast.
+        3) Marries output predicted y-values with datetime indexing
+
+        Arguments:
+            model (object)           : an object created from a model.fit method (required)
+            features (dataframe)     : dataframe of forecasted weather features (required)
+
+        Returns:
+            pred_df (dataframe)      : a dataframe of y-prediction data indexed to datetime
+        """
         self.prep_feats = features.copy()
         self.model = model
 
@@ -725,3 +796,56 @@ class PredictData:
         self.preds_df.set_index("dt", inplace=True)
 
         return self.preds_df
+
+    def _charging_calcs(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
+        # Set variables for charging cost predictions
+        self.df = preds_df.copy()
+        self.num_cars = num_cars
+        self.hrs_to_charge = hrs_to_charge
+        self.kw_to_charge = kw_to_charge
+
+        # Convert index time to Eastern TZ
+        self.df.index = self.df.index.tz_convert("US/Eastern")
+
+        # Create column of power/usage difference
+        self.df["difference"] = self.df["Power Usage"] - self.df["Power Generated"]
+
+        # Create day of week and hour columns for applying rates
+        self.df["dow"] = self.df.index.strftime("%w").astype(int)
+        self.df["hr"] = self.df.index.strftime("%H").astype(int)
+
+        ## Set rates
+        # Set off=peak price
+        self.df["price"] = 0.04801
+
+        # Set super-off-peak
+        self.df.loc[(self.df.hr >= 0) & (self.df.hr < 6), "price"] = 0.02824
+
+        # Set Peak rates
+        self.df.loc[
+            ((self.df.hr >= 14) & (self.df.hr < 18))
+            & ((self.df.dow > 0) & (self.df.dow < 6)),
+            "price",
+        ] = 0.14402
+
+        # Drop unneeded columns
+        self.df.drop(["dow", "hr"], axis=1, inplace=True)
+
+        # Compute estimated cost for the hour
+        self.df["cost"] = self.df.difference * self.df.price
+
+        # Compute average cast of energy for the 48hr period
+        self.df["cost_avg"] = self.df.cost.sum() / len(self.df)
+
+        # Calculate power usage including variables
+        self.df["charging"] = self.df.difference + (self.kw_to_charge * self.num_cars)
+
+        # Calculate charging cost given variables
+        self.df["charging_cost"] = self.df.charging * self.df.cost
+
+        # Roll through the number of hours needed for charging
+        self.df["window"] = self.df.charging_cost.rolling(self.hrs_to_charge).sum()
+
+        # Select optimum hours for charging
+        ### to be added
+        return self.df
