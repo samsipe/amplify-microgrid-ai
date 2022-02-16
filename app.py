@@ -108,7 +108,7 @@ def historical_data(i):
         temp_df,
         labels={
             "value": "Power (kW)",
-            "x": "Date and Time (Local)",
+            "index": "Date and Time (Local)",
             "variable": "",
         },
         color_discrete_sequence=px.colors.qualitative.D3,
@@ -202,7 +202,7 @@ dashboard = dbc.Container(
                     min=int(xy_data.shape[0] - 0.2 * xy_data.shape[0]),
                     max=int(xy_data.shape[0] - 48),
                     value=int(xy_data.shape[0] * 0.9 - 24),
-                    step=None,
+                    step=3,
                     id="date-slider",
                     marks=None,
                 )
