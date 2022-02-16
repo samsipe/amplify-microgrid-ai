@@ -513,15 +513,15 @@ class DataSplit:
 
 class PredictData:
     """
-                        1) Takes in weather prediction data (API connection)
-                        2) Cleans raw API -> JSON data
-                        3) Adds day_of_week, irradiance, and azimuth
-                        4) Outputs clean features of weather prediction + pysolar for 48hrs
-                        5) a) Split datetime index to a separate df,
-                           b) Run model.predict(forecast),
-                           c) Combine datetime df with predict output
-                        8) ???
-                        9) Profit
+                                1) Takes in weather prediction data (API connection)
+                                2) Cleans raw API -> JSON data
+                                3) Adds day_of_week, irradiance, and azimuth
+                                4) Outputs clean features of weather prediction + pysolar for 48hrs
+                                5) a) Split datetime index to a separate df,
+                                   b) Run model.predict(forecast),
+                                   c) Combine datetime df with predict output
+                                8) ???
+                                9) Profit
     """
 
     def __init__(
@@ -795,6 +795,10 @@ class PredictData:
         # Set index on column dt
         self.preds_df.set_index("dt", inplace=True)
 
+        # Drop predictions into parquet file
+        ### needs work
+        # self.preds_df.to_parquet('/tmp/amplify/preds.parquet')
+
         return self.preds_df
 
     def _charging_calcs(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
@@ -847,5 +851,28 @@ class PredictData:
         self.df["window"] = self.df.charging_cost.rolling(self.hrs_to_charge).sum()
 
         # Select optimum hours for charging
-        ### to be added
+
+        self.charge = pd.DataFrame()
+
+        # Loop through date stamps for best hours to charge
+        for date in pd.DataFrame(self.df.window.nsmallest(5)).index:
+            # Append times to the collection df based on window selection
+            self.charge = self.charge.append(
+                self.df.loc[date + pd.DateOffset(hours=-self.hrs_to_charge) : date]
+            )
+
+        # Set charging go/no-go column to 1
+        self.charge["Go_NoGo"] = 1
+
+        # Merge go/no-go column back to main costing df
+        self.df = self.df.merge(
+            self.charge.Go_NoGo, "left", left_index=True, right_index=True
+        )
+
+        # Replace nulls in Go/No-Go with 0
+        self.df.Go_NoGo.fillna(0, inplace=True)
+
+        # Convert Go/No-Go to integer
+        self.df.Go_NoGo = self.df.Go_NoGo.astype(int)
+
         return self.df
