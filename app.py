@@ -4,7 +4,9 @@ import pytz
 from clearml import Dataset, Model
 from tensorflow import keras
 
-from dash import Dash, html, dcc, Input, Output, State
+from dash import Dash, html, dcc
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import numpy as np
@@ -33,6 +35,9 @@ model = YeetLSTMv2(
     production_mode=True,
 )
 
+# Create prediction engine
+predict_data = PredictData(model)
+
 # Get historical data
 xy_data = pd.read_csv(
     glob(
@@ -53,12 +58,40 @@ xy_data = pd.read_csv(
 # model.evaluate(x_test, y_test, verbose=1)
 
 
+#TODO: make output a figure
+#TODO: add buttons and inputs
+@app.callback(
+    Output("charging-calc-out", "figure"),
+    Input("predict-optimal-charging", "n_clicks"),
+    State("num-cars-input", "value"),                   # input_1
+    State("hrs-to-charge-input", "value"),              # input_2
+    State("kw-to-charge-input", "value"))               # input_3
+def calculate_optimal_charging(n_clicks, input_1, input_2, input_3):
+    if n_clicks is None:
+        raise PreventUpdate
+    else:
+        # make calculation
+        num_cars = int(input_1)
+        hrs_to_charge = int(input_2)
+        kw_to_charge = int(input_3)
+
+        charging_df = predict_data.calculate_charging(
+            preds_df=predict_data.pred_out,
+            num_cars=num_cars,
+            hrs_to_charge=hrs_to_charge,
+            kw_to_charge=kw_to_charge
+        )
+
+        #TODO: add correct calculation output
+        #TODO: add plot
+        pass
+
 @app.callback(
     Output("forcast_data", "figure"), Input("interval-component", "n_intervals")
 )
 def forcast_data(n):
     """This will get data from OpenWeather OnceCall API"""
-    preds = PredictData(model).forecast()
+    preds = predict_data.forecast()
     preds.index = preds.index.tz_convert("US/Eastern")
 
     fig = px.line(
@@ -232,7 +265,13 @@ counter = dcc.Interval(
     n_intervals=0,
 )
 
-app.layout = html.Div([navbar, dashboard, footer, counter])
+
+#TODO: add sidebar layout
+#TODO: play around with dash-bootstrap-components
+#TODO: make sidebar side by side with plot stuff
+sidebar_layout = html.Div[]
+plot_layout = html.Div[navbar, dashboard, footer, counter]
+app.layout = html.Div([sidebar_layout, plot_layout], style={'display': 'flex', 'flex-direction': 'row'})
 
 if __name__ == "__main__":
     app.run_server(debug=True)
