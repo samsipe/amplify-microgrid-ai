@@ -853,10 +853,10 @@ class PredictData:
         self.df.drop(["dow", "hr"], axis=1, inplace=True)
 
         # Compute estimated cost for the hour
-        self.df["Predicted Net Cost"] = self.df["Predicted Net"] * self.df.Rate
+        self.df["Predicted Cost"] = self.df["Predicted Net"] * self.df.Rate
 
         # Compute average cast of energy for the 48hr period
-        self.df["Average Predicted Cost"] = self.df["Predicted Net Cost"].sum() / len(
+        self.df["Average Predicted Cost"] = self.df["Predicted Cost"].sum() / len(
             self.df
         )
 
@@ -867,7 +867,7 @@ class PredictData:
 
         # Calculate charging cost given variables
         self.df["Predicted Cost While Charging"] = (
-            self.df["Predicted Usage While Charging"] * self.df["Predicted Net Cost"]
+            self.df["Predicted Usage While Charging"] * self.df["Predicted Cost"]
         )
 
         # Roll through the number of hours needed for charging
