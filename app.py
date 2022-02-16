@@ -65,7 +65,7 @@ def forcast_data(n):
         preds,
         labels={
             "value": "Power (kW)",
-            "dt": "Date and Time",
+            "dt": "Date and Time (Local)",
             "variable": "",
         },
         color_discrete_sequence=px.colors.qualitative.D3,
@@ -96,18 +96,19 @@ def historical_data(i):
         )
     )
 
+    temp_df = pd.DataFrame()
+    temp_df["Predicted Solar"] = y_preds[0, :, 0]
+    temp_df["Predicted Usage"] = y_preds[0, :, 1]
+    temp_df["Actual Solar"] = xy_data["True Power (kW) solar"].iloc[i : i + 48].values
+    temp_df["Actual Usage"] = xy_data["True Power (kW) usage"].iloc[i : i + 48].values
+    temp_df.index = pd.to_datetime(xy_data.iloc[i : i + 48].index)
+    temp_df.index = temp_df.index.tz_convert("US/Eastern")
+
     fig = px.line(
-        xy_data.iloc[i : i + 48],
-        x=xy_data.iloc[i : i + 48].index,
-        y=[
-            y_preds[0, :, 0].T,
-            y_preds[0, :, 1].T,
-            "True Power (kW) solar",
-            "True Power (kW) usage",
-        ],
+        temp_df,
         labels={
             "value": "Power (kW)",
-            "x": "Date and Time",
+            "x": "Date and Time (Local)",
             "variable": "",
         },
         color_discrete_sequence=px.colors.qualitative.D3,

@@ -26,7 +26,7 @@ services:
     env_file:
       - .env
     volumes:
-      - /home/samsipe/clearml.conf:/root/clearml.conf
+      - /home/ubuntu/clearml.conf:/root/clearml.conf
     restart: on-failure
     user: "root"
     command: "gunicorn -b 0.0.0.0:80 app:server"
