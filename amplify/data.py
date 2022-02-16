@@ -597,15 +597,16 @@ class PredictData:
 
         print("Info: Usage and Generation predictions complete!")
 
-        self.charting_df = self._charging_calcs(
-            preds_df=self.pred_out,
-            num_cars=self.num_cars,
-            hrs_to_charge=self.hrs_to_charge,
-            kw_to_charge=self.kw_to_charge,
-        )
+        # self.charting_df = self._charging_calcs(
+        #    preds_df=self.pred_out,
+        #    num_cars=self.num_cars,
+        #    hrs_to_charge=self.hrs_to_charge,
+        #    kw_to_charge=self.kw_to_charge,
+        # )
 
-        print("Info: Costing predictions complete!")
-        return self.charting_df
+        # print("Info: Costing predictions complete!")
+
+        return self.pred_out
 
     def _get_forecast(self, ow_api_key: str, lat: float, lon: float, features: str):
         """
@@ -801,7 +802,7 @@ class PredictData:
 
         return self.preds_df
 
-    def _charging_calcs(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
+    def calculate_charging(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
         """
         1) Calculates net power.
         2) Assigns and calculates billing rates/charges.
@@ -895,4 +896,6 @@ class PredictData:
         # Convert Go/No-Go to integer
         self.df.Go_NoGo = self.df.Go_NoGo.astype(int)
 
-        return self.df
+        self.charging_df = self.df
+
+        return self.charging_df
