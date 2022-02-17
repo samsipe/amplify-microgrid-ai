@@ -81,6 +81,15 @@ def forcast_data(n):
         line_color="red",
         line_dash="dash",
     )
+    fig.update_xaxes(
+        fixedrange=True,
+        showgrid=True,
+        range=[preds.index.min(), preds.index.max()],
+    )
+    fig.update_yaxes(
+        fixedrange=True,
+        showgrid=True,
+    )
     fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
@@ -118,7 +127,8 @@ def historical_data(i):
         },
         color_discrete_sequence=px.colors.qualitative.D3,
     )
-
+    fig.update_xaxes(fixedrange=True, showgrid=True)
+    fig.update_yaxes(fixedrange=True, showgrid=True)
     fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
