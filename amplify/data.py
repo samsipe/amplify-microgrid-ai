@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import warnings
@@ -7,11 +6,10 @@ from glob import glob
 import numpy as np
 import pandas as pd
 import requests
-from amplify.models import YeetLSTMv2
-from clearml import Dataset, Model
+from clearml import Dataset
 from pysolar.radiation import get_radiation_direct
 from pysolar.solar import get_altitude, get_azimuth
-from tensorflow.keras.layers import Normalization
+from keras.layers import Normalization
 
 
 # TODO: replace prints with logging
@@ -506,22 +504,18 @@ class DataSplit:
             self.norm_layer,
         )
 
-        # train_split[0] -> features
-        # train_split[1] -> solar
-        # train_split[2] -> usage
-
 
 class PredictData:
     """
-                                        1) Takes in weather prediction data (API connection)
-                                        2) Cleans raw API -> JSON data
-                                        3) Adds day_of_week, irradiance, and azimuth
-                                        4) Outputs clean features of weather prediction + pysolar for 48hrs
-                                        5) a) Split datetime index to a separate df,
-                                           b) Run model.predict(forecast),
-                                           c) Combine datetime df with predict output
-                                        8) ???
-                                        9) Profit
+    1) Takes in weather prediction data (API connection)
+    2) Cleans raw API -> JSON data
+    3) Adds day_of_week, irradiance, and azimuth
+    4) Outputs clean features of weather prediction + pysolar for 48hrs
+    5) a) Split datetime index to a separate df,
+       b) Run model.predict(forecast),
+       c) Combine datetime df with predict output
+    8) ???
+    9) Profit
     """
 
     def __init__(
@@ -817,6 +811,9 @@ class PredictData:
         Returns:
             pred_df (dataframe)      : a dataframe of usage/solar, billing, and charging windows
         """
+
+        warnings.filterwarnings("ignore")
+
         # Set variables for charging cost predictions
         self.df = preds_df.copy()
         self.num_cars = num_cars
@@ -853,21 +850,16 @@ class PredictData:
         self.df.drop(["dow", "hr"], axis=1, inplace=True)
 
         # Compute estimated cost for the hour
-        self.df["Predicted Cost"] = self.df["Predicted Net"] * self.df.Rate
-
-        # Compute average cast of energy for the 48hr period
-        self.df["Average Predicted Cost"] = self.df["Predicted Cost"].sum() / len(
-            self.df
-        )
+        self.df["Predicted Cost"] = self.df["Predicted Net"] * self.df["Rate"]
 
         # Calculate power usage including variables
-        self.df["Predicted Usage While Charging"] = self.df["Predicted Net"] + (
+        self.df["Predicted Net While Charging"] = self.df["Predicted Net"] + (
             self.kw_to_charge * self.num_cars
         )
 
         # Calculate charging cost given variables
         self.df["Predicted Cost While Charging"] = (
-            self.df["Predicted Usage While Charging"] * self.df["Predicted Cost"]
+            self.df["Predicted Net While Charging"] * self.df["Rate"]
         )
 
         # Roll through the number of hours needed for charging
@@ -881,10 +873,10 @@ class PredictData:
         self.charge = pd.DataFrame()
 
         # Loop through date stamps for best hours to charge
-        for date in pd.DataFrame(self.df.window.nsmallest(5)).index:
+        for date in pd.DataFrame(self.df.window.nsmallest(12)).index:
             # Append times to the collection df based on window selection
             self.charge = self.charge.append(
-                self.df.loc[date + pd.DateOffset(hours=-self.hrs_to_charge) : date]
+                self.df.loc[date + pd.DateOffset(hours=-self.hrs_to_charge + 1) : date]
             )
 
         # Set charging go/no-go column to 1

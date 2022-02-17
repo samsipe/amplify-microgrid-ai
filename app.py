@@ -58,11 +58,15 @@ xy_data = pd.read_csv(
 )
 def forcast_data(n):
     """This will get data from OpenWeather OnceCall API"""
-    preds = PredictData(model).forecast()
+    preds = PredictData(model, num_cars=2, hrs_to_charge=3, kw_to_charge=7).forecast()
     preds.index = preds.index.tz_convert("US/Eastern")
 
     fig = px.line(
         preds,
+        y=[
+            "Predicted Solar",
+            "Predicted Usage",
+        ],
         labels={
             "value": "Power (kW)",
             "dt": "Date and Time (Local)",
@@ -70,6 +74,7 @@ def forcast_data(n):
         },
         color_discrete_sequence=px.colors.qualitative.D3,
     )
+    fig.add_bar(x=preds.index, y=preds["Optimal Charging"], name="Optimal EV Charging")
     fig.add_vline(
         x=datetime.now(pytz.timezone("US/Eastern")),
         line_width=2,
