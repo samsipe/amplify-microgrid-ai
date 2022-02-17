@@ -513,15 +513,15 @@ class DataSplit:
 
 class PredictData:
     """
-                                    1) Takes in weather prediction data (API connection)
-                                    2) Cleans raw API -> JSON data
-                                    3) Adds day_of_week, irradiance, and azimuth
-                                    4) Outputs clean features of weather prediction + pysolar for 48hrs
-                                    5) a) Split datetime index to a separate df,
-                                       b) Run model.predict(forecast),
-                                       c) Combine datetime df with predict output
-                                    8) ???
-                                    9) Profit
+                                        1) Takes in weather prediction data (API connection)
+                                        2) Cleans raw API -> JSON data
+                                        3) Adds day_of_week, irradiance, and azimuth
+                                        4) Outputs clean features of weather prediction + pysolar for 48hrs
+                                        5) a) Split datetime index to a separate df,
+                                           b) Run model.predict(forecast),
+                                           c) Combine datetime df with predict output
+                                        8) ???
+                                        9) Profit
     """
 
     def __init__(
@@ -828,7 +828,7 @@ class PredictData:
         self.df.index = self.df.index.tz_convert("US/Eastern")
 
         # Create column of power/usage difference
-        self.df["Net Difference"] = (
+        self.df["Predicted Net"] = (
             self.df["Predicted Usage"] - self.df["Predicted Solar"]
         )
 
@@ -854,21 +854,27 @@ class PredictData:
         self.df.drop(["dow", "hr"], axis=1, inplace=True)
 
         # Compute estimated cost for the hour
-        self.df["Predicted Net Cost"] = self.df.difference * self.df.price
+        self.df["Predicted Cost"] = self.df["Predicted Net"] * self.df.Rate
 
         # Compute average cast of energy for the 48hr period
-        self.df["Average Predicted Cost"] = self.df.cost.sum() / len(self.df)
+        self.df["Average Predicted Cost"] = self.df["Predicted Cost"].sum() / len(
+            self.df
+        )
 
         # Calculate power usage including variables
-        self.df["Predicted Usage While Charging"] = self.df.difference + (
+        self.df["Predicted Usage While Charging"] = self.df["Predicted Net"] + (
             self.kw_to_charge * self.num_cars
         )
 
         # Calculate charging cost given variables
-        self.df["Predicted Cost While Charging"] = self.df.charging * self.df.cost
+        self.df["Predicted Cost While Charging"] = (
+            self.df["Predicted Usage While Charging"] * self.df["Predicted Cost"]
+        )
 
         # Roll through the number of hours needed for charging
-        self.df["window"] = self.df.charging_cost.rolling(self.hrs_to_charge).sum()
+        self.df["window"] = (
+            self.df["Predicted Cost While Charging"].rolling(self.hrs_to_charge).sum()
+        )
 
         # Select optimum hours for charging
 
@@ -883,18 +889,18 @@ class PredictData:
             )
 
         # Set charging go/no-go column to 1
-        self.charge["Go_NoGo"] = 1
+        self.charge["Optimal Charging"] = 1
 
         # Merge go/no-go column back to main costing df
         self.df = self.df.merge(
-            self.charge.Go_NoGo, "left", left_index=True, right_index=True
+            self.charge["Optimal Charging"], "left", left_index=True, right_index=True
         )
 
         # Replace nulls in Go/No-Go with 0
-        self.df.Go_NoGo.fillna(0, inplace=True)
+        self.df["Optimal Charging"].fillna(0, inplace=True)
 
         # Convert Go/No-Go to integer
-        self.df.Go_NoGo = self.df.Go_NoGo.astype(int)
+        self.df["Optimal Charging"] = self.df["Optimal Charging"].astype(int)
 
         self.charging_df = self.df
 
