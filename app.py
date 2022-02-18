@@ -14,6 +14,8 @@ from amplify.data import PredictData
 from amplify.data import DataSplit
 from amplify.models import YeetLSTMv2
 
+from flask_caching import Cache
+
 app = Dash(
     __name__,
     title="Amplify Microgrid AI",
@@ -24,6 +26,11 @@ app = Dash(
 )
 
 server = app.server
+cache = Cache(
+    app.server, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": "./data/cache"}
+)
+
+TIMEOUT = 180
 
 
 # Load the model
@@ -58,13 +65,23 @@ xy_data = pd.read_csv(
 # model.evaluate(x_test, y_test, verbose=1)
 
 
+@cache.memoize(timeout=TIMEOUT)
+def query_data():
+    preds = PredictData(model, num_cars=2, hrs_to_charge=3, kw_to_charge=7).forecast()
+    return preds.to_json(date_format="iso", orient="split")
+
+
+def data_cache():
+    return pd.read_json(query_data(), orient="split").tz_convert("US/Eastern")
+
+
 @app.callback(
     Output("forcast_data", "figure"), Input("interval-component", "n_intervals")
 )
 def forcast_data(n):
     """This will get data from OpenWeather OnceCall API"""
-    preds = PredictData(model, num_cars=2, hrs_to_charge=3, kw_to_charge=7).forecast()
-    preds.index = preds.index.tz_convert("US/Eastern")
+
+    preds = data_cache()
 
     fig = px.line(
         preds,
