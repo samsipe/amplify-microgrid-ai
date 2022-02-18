@@ -1,4 +1,13 @@
 # Amplify Microgrid AI
+- [Amplify Microgrid AI](#amplify-microgrid-ai)
+  - [Overview](#overview)
+    - [Project Details](#project-details)
+  - [Setup and Installation](#setup-and-installation)
+  - [Training](#training)
+  - [Jupyter Notebooks](#jupyter-notebooks)
+  - [Deployment](#deployment)
+    - [Dash App - Docker Compose](#dash-app---docker-compose)
+    - [Dash App - Kubernetes](#dash-app---kubernetes)
 
 ## Overview
 **This project aims to modernize how buildings interact with the grid**, utilizing deep learning techniques to predict future usage and generation to make smarter energy decisions.
@@ -27,11 +36,24 @@ Training can be completed using ClearML tasks or inside Jupyter Notebooks
 ## Jupyter Notebooks
 These are found [here](notebooks/) and  used for development, model training, and testing. All functionality should be migrated to the [amplify](amplify/) module.
 
-## Dash App
-To deploy the Dash app with Docker Compose, first make a file called `.env` and input an [OpenWeather API key](https://openweathermap.org/api/one-call-api) like this:
+## Deployment
+
+This model has been packaged in a Dash application that can be deployed in a container.
+
+### Dash App - Docker Compose
+To deploy with Docker Compose, first make a file called `.env` and input keys/secrets for [OpenWeather](https://openweathermap.org/api/one-call-api), ClearML, and AWS.
 
 ```
-OW_API_KEY=this_is_an_api_key
+OW_API_KEY=
+CLEARML_WEB_HOST=https://app.clear.ml
+CLEARML_API_HOST=https://api.clear.ml
+CLEARML_FILES_HOST=https://files.clear.ml
+CLEARML_API_ACCESS_KEY=
+CLEARML_API_SECRET_KEY=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=us-east-1
+
 ```
 Then run the following:
 
@@ -39,4 +61,10 @@ Then run the following:
 docker-compose up -d --build
 ```
 
-This relies on the same `clearml.conf` file before with a docker bind mount. Make sure the absolute path is correct.
+### Dash App - Kubernetes
+
+First Create a cluster
+
+```
+eksctl create cluster -f eks_cluster.yml --profile xyz
+```
