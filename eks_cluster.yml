@@ -1,0 +1,30 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+availabilityZones:
+  - us-east-1a
+  - us-east-1d
+
+metadata:
+  name: amplify
+  region: us-east-1
+  version: "1.21"
+
+managedNodeGroups:
+  - name: ng-01
+    desiredCapacity: 1
+    minSize: 0
+    maxSize: 6
+    instanceType: m5a.large
+    privateNetworking: true
+    volumeSize: 32
+    volumeType: gp3
+    volumeEncrypted: true
+    disableIMDSv1: true
+    labels:
+      nodegroup-type: cpu
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+    ssh:
+      allow: true
+      publicKeyPath: ~/.ssh/id_rsa.pub
