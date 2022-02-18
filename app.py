@@ -50,41 +50,55 @@ xy_data = pd.read_csv(
     index_col=0,
 )
 
-# (x_train, y_train), (x_val, y_val), (x_test, y_test), norm_layer = DataSplit(
-#     xy_data,
-# ).split_data()
-
-# model.evaluate(x_val, y_val, verbose=1)
-# model.evaluate(x_test, y_test, verbose=1)
-
-
-#TODO: make output a figure
-#TODO: add buttons and inputs
+# TODO: make output a figure
+# TODO: add buttons and inputs
 @app.callback(
-    Output("charging-calc-out", "figure"),
-    Input("predict-optimal-charging", "n_clicks"),
+    Output("charging_prediction", "figure"),
+    Input("predict-optimal-charging-input", "n_clicks"),
     State("num-cars-input", "value"),                   # input_1
-    State("hrs-to-charge-input", "value"),              # input_2
-    State("kw-to-charge-input", "value"))               # input_3
-def calculate_optimal_charging(n_clicks, input_1, input_2, input_3):
-    if n_clicks is None:
+    State("charging-time-input", "value"),              # input_2
+    State("kw-per-hour-input", "value"),                # input_3
+    State("num-window-input", "value"))                 # input_4
+
+def calculate_optimal_charging(n_clicks, input_1, input_2, input_3, input_4):
+    if n_clicks <= 0:
         raise PreventUpdate
     else:
         # make calculation
         num_cars = int(input_1)
         hrs_to_charge = int(input_2)
-        kw_to_charge = int(input_3)
-
-        charging_df = predict_data.calculate_charging(
-            preds_df=predict_data.pred_out,
-            num_cars=num_cars,
-            hrs_to_charge=hrs_to_charge,
-            kw_to_charge=kw_to_charge
-        )
-
+        charging_rate_kwh = int(input_3)
+        num_window = int(input_4)
+        #charging_df = predict_data.calculate_charging(
+        #    preds_df=predict_data.pred_out,
+        #    num_cars=num_cars,
+        #    hrs_to_charge=hrs_to_charge,
+        #    charging_rate_kwh=charging_rate_kwh,
+        #    num_charging_windows=num_window
+        #)
         #TODO: add correct calculation output
         #TODO: add plot
-        pass
+        fig = px.line(x=[1,2,3,4], y = [num_cars, hrs_to_charge, charging_rate_kwh, num_window])
+        #fig = px.line(
+        #charging_df,
+        #labels={
+        #    "value": "Power (kW)",
+        #    "dt": "Date and Time (Local)",
+        #    "variable": "",
+        #},
+        #color_discrete_sequence=px.colors.qualitative.D3,
+        #)
+        #fig.add_vline(
+        #    x=datetime.now(pytz.timezone("US/Eastern")),
+        #    line_width=2,
+        #    line_color="red",
+        #    line_dash="dash",
+        #)
+        fig.update_layout(
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        return fig
+
 
 @app.callback(
     Output("forcast_data", "figure"), Input("interval-component", "n_intervals")
@@ -222,6 +236,12 @@ dashboard = dbc.Container(
                 ),
                 dcc.Graph(id="forcast_data"),
                 html.H4(
+                    "Charging Prediction",
+                    className="mt-3",
+                    style={"textAlign": "center"},
+                ),
+                dcc.Graph(id="charging_prediction"),
+                html.H4(
                     "Historical Power Generation and Usage Predictions",
                     className="mt-3",
                     style={"textAlign": "center"},
@@ -265,13 +285,98 @@ counter = dcc.Interval(
     n_intervals=0,
 )
 
+## Sidebar (issue with using on phone)
+# the style arguments for the sidebar. We use position:fixed and a fixed width
+# SIDEBAR_STYLE = {
+#    "position": "fixed",
+#    "top": 0,
+#    "left": 0,
+#    "bottom": 0,
+#    "width": "16rem",
+#    "padding": "2rem 1rem",
+#    "background-color": "#f8f9fa",
+# }
 
-#TODO: add sidebar layout
-#TODO: play around with dash-bootstrap-components
-#TODO: make sidebar side by side with plot stuff
-sidebar_layout = html.Div[]
-plot_layout = html.Div[navbar, dashboard, footer, counter]
-app.layout = html.Div([sidebar_layout, plot_layout], style={'display': 'flex', 'flex-direction': 'row'})
+# sidebar = html.Div(
+#    [
+#        html.H2("Sidebar", className="display-4"),
+#        html.Hr(),
+#        html.P("A simple sidebar layout with navigation links", className="lead"),
+#    ],
+#    style=SIDEBAR_STYLE,
+# )
+num_cars_dropdown = [1, 2, 3]
+kwh_per_hour_dropdown = [6.5, 7.5, 50, 100]
+charging_time_input = [3, 6, 1]
+num_best_charging_options_input = [1, 12, 1]
+
+
+controls = dbc.Card(
+    [
+        html.Div(
+            [
+                html.H1([dbc.Badge("Charging Calculator", className="ms-1", color="primary")]),
+                dbc.FormText("Enter your information to calculate the optimal windows to charge your car(s)!")
+            ]
+        ),
+        html.Div(
+            [
+                dbc.Label("Number of Cars:"),
+                dcc.Dropdown(
+                    id="num-cars-input",
+                    options=[{"label": x, "value": x} for x in num_cars_dropdown],
+                    value=num_cars_dropdown[0],
+                ),
+            ]
+        ),
+        html.Div(
+            [
+                dbc.Label("Charging Rate (kWh):"),
+                dcc.Dropdown(
+                    id="kw-per-hour-input",
+                    options=[{"label": x, "value": x} for x in kwh_per_hour_dropdown],
+                    value=kwh_per_hour_dropdown[0],
+                ),
+            ]
+        ),
+        html.Div(
+            [
+                dbc.Label("Charging Time:"),
+                dbc.Input(
+                    id="charging-time-input",
+                    type="number",
+                    min=charging_time_input[0],
+                    max=charging_time_input[1],
+                    step=charging_time_input[2],
+                    value=charging_time_input[0],
+                ),
+            ]
+        ),
+        html.Div(
+            [
+                dbc.Label("Number of Optimal Charging Windows:"),
+                dbc.Input(
+                    id="num-window-input",
+                    type="number",
+                    min=num_best_charging_options_input[0],
+                    max=num_best_charging_options_input[1],
+                    step=num_best_charging_options_input[2],
+                    value=num_best_charging_options_input[0],
+                ),
+            ]
+        ),
+        html.Div(
+            [
+                dbc.Button("Predict", size='lg', id='predict-optimal-charging-input', n_clicks=0)
+            ], className="d-grid gap-2 col-6 mx-auto"
+        )
+    ],
+    body=True,
+)
+
+middle = dbc.Row([dbc.Col(controls, md=3), dbc.Col(dashboard, md=9)])
+
+app.layout = html.Div([navbar, middle, footer, counter])
 
 if __name__ == "__main__":
     app.run_server(debug=True)
