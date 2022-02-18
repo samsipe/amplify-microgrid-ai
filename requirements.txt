@@ -8,6 +8,7 @@ matplotlib
 pysolar
 dash
 dash-bootstrap-components
+flask_caching
 python-dotenv
 gunicorn
 
