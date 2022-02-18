@@ -513,15 +513,15 @@ class DataSplit:
 
 class PredictData:
     """
-                                        1) Takes in weather prediction data (API connection)
-                                        2) Cleans raw API -> JSON data
-                                        3) Adds day_of_week, irradiance, and azimuth
-                                        4) Outputs clean features of weather prediction + pysolar for 48hrs
-                                        5) a) Split datetime index to a separate df,
-                                           b) Run model.predict(forecast),
-                                           c) Combine datetime df with predict output
-                                        8) ???
-                                        9) Profit
+    1) Takes in weather prediction data (API connection)
+    2) Cleans raw API -> JSON data
+    3) Adds day_of_week, irradiance, and azimuth
+    4) Outputs clean features of weather prediction + pysolar for 48hrs
+    5) a) Split datetime index to a separate df,
+       b) Run model.predict(forecast),
+       c) Combine datetime df with predict output
+    8) ???
+    9) Profit
     """
 
     def __init__(
@@ -531,7 +531,7 @@ class PredictData:
         lon: float = -75.1396,
         num_cars: int = 1,
         hrs_to_charge: int = 3,
-        kw_to_charge: int = 7,
+        charging_rate_kwh: int = 7,
         features: list = ["dt", "temp", "clouds"],
         cyclical_features: list = ["azimuth", "day_of_week"],
         ow_api_key: str = os.environ.get("OW_API_KEY"),
@@ -545,7 +545,7 @@ class PredictData:
             lon (float)              : longitude of location for weather forecast (optional)
             num_cars (int)           : how many cars will be charged (optional)
             hrs_to_charge (int)      : how many hours each car needs to be charged for (optional)
-            kw_to_charge (int)       : how many kW each car will draw per hour (optional)
+            charging_rate_kwh (int)  : how many kW each car will draw per hour (optional)
             features (list)          : list of weather features to pull from API (optional)
             cyclical_features (list) : columns to convert to sin/cos waveform (optional)
             ow_api_key (str)         : string key for Open Weather API (optional)
@@ -557,7 +557,7 @@ class PredictData:
         self.model = model
         self.num_cars = num_cars
         self.hrs_to_charge = hrs_to_charge
-        self.kw_to_charge = kw_to_charge
+        self.charging_rate_kwh = charging_rate_kwh
 
     def forecast(self):
         """
@@ -601,7 +601,7 @@ class PredictData:
         #    preds_df=self.pred_out,
         #    num_cars=self.num_cars,
         #    hrs_to_charge=self.hrs_to_charge,
-        #    kw_to_charge=self.kw_to_charge,
+        #    charging_rate_kwh=self.charging_rate_kwh,
         # )
 
         # print("Info: Costing predictions complete!")
@@ -800,9 +800,11 @@ class PredictData:
         # Set index on column dt
         self.preds_df.set_index("dt", inplace=True)
 
+        self.preds_df.index = self.preds_df.index.tz_convert("US/Eastern")
+
         return self.preds_df
 
-    def calculate_charging(self, preds_df, num_cars, hrs_to_charge, kw_to_charge):
+    def calculate_charging(self, preds_df, num_cars, hrs_to_charge, charging_rate_kwh, num_charging_windows):
         """
         1) Calculates net power.
         2) Assigns and calculates billing rates/charges.
@@ -813,7 +815,7 @@ class PredictData:
             preds_df (object)        : an object created from a model.fit method (required)
             num_cars (int)           : num of cars to be charged (optional)
             hrs_to_charge (int)      : how many hours each car will be charging
-            kw_to_charge (int)       : how many kWh are used for charging
+            charging_rate_kwh (int)  : how many kWh are used for charging
 
         Returns:
             pred_df (dataframe)      : a dataframe of usage/solar, billing, and charging windows
@@ -822,10 +824,11 @@ class PredictData:
         self.df = preds_df.copy()
         self.num_cars = num_cars
         self.hrs_to_charge = hrs_to_charge
-        self.kw_to_charge = kw_to_charge
+        self.charging_rate_kwh = charging_rate_kwh
+
 
         # Convert index time to Eastern TZ
-        self.df.index = self.df.index.tz_convert("US/Eastern")
+        # self.df.index = self.df.index.tz_convert("US/Eastern")
 
         # Create column of power/usage difference
         self.df["Predicted Net"] = (
@@ -863,7 +866,7 @@ class PredictData:
 
         # Calculate power usage including variables
         self.df["Predicted Usage While Charging"] = self.df["Predicted Net"] + (
-            self.kw_to_charge * self.num_cars
+            self.charging_rate_kwh * self.num_cars
         )
 
         # Calculate charging cost given variables
@@ -882,7 +885,7 @@ class PredictData:
         self.charge = pd.DataFrame()
 
         # Loop through date stamps for best hours to charge
-        for date in pd.DataFrame(self.df.window.nsmallest(5)).index:
+        for date in pd.DataFrame(self.df.window.nsmallest(num_charging_windows)).index:
             # Append times to the collection df based on window selection
             self.charge = self.charge.append(
                 self.df.loc[date + pd.DateOffset(hours=-self.hrs_to_charge) : date]
