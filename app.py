@@ -15,7 +15,12 @@ from amplify.data import DataSplit
 from amplify.models import YeetLSTMv2
 
 app = Dash(
-    __name__, title="Amplify Microgrid AI", external_stylesheets=[dbc.themes.ZEPHYR]
+    __name__,
+    title="Amplify Microgrid AI",
+    external_stylesheets=[dbc.themes.ZEPHYR],
+    meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+    ],
 )
 
 server = app.server
@@ -224,6 +229,7 @@ dashboard = dbc.Container(
             ],
             className="d-grid gap-2 col-6 mx-auto",
         ),
+        html.Div(className="pb-5"),
     ]
 )
 
@@ -233,7 +239,6 @@ footer = dbc.Navbar(
             dbc.Row(
                 dbc.Col(html.Footer(html.P("© 2022 Amplify", className="ms-2"))),
                 align="center",
-                className="g-0",
             )
         ]
     ),
