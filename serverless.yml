@@ -1,0 +1,50 @@
+service: amplify-app
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: beta
+  region: us-east-1
+  tracing:
+    lambda: true
+  logRetentionInDays: 30
+  profile: fb
+  deploymentBucket:
+    blockPublicAccess: true
+    name: amplify-microgrid-ai
+    maxPreviousDeploymentArtifacts: 5
+    serverSideEncryption: AES256
+  apiGateway:
+    shouldStartNameWithService: true
+    description: ${self:service}
+
+functions:
+  app:
+    handler: wsgi_handler.handler
+    events:
+      - http: ANY /
+      - http: "ANY {proxy+}"
+
+custom:
+  wsgi:
+    app: app.server
+    pythonBin: python3
+    packRequirements: false
+  pythonRequirements:
+    dockerizePip: true
+    slim: true
+    strip: false
+
+plugins:
+  - serverless-wsgi
+  # this fails b/c larger than 250MB unzipped
+  - serverless-python-requirements
+
+package:
+  individually: false
+  exclude:
+    - data/**
+    - logs/**
+    - models/**
+    - notebooks/
