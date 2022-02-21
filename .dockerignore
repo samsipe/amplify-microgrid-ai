@@ -137,8 +137,27 @@ dmypy.json
 
 # Git
 .git/
+.gitignore
+
+# Docker ingore Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Deployment
+eks_cluster.yml
+charts/
+templates/
+.helmignore
+Chart.yaml
+values.yaml
+.serverless**
+serverless**
+node_modules
+package**
 
 # Amplify
 data/**
-**.csv
-notebooks/*
+logs/**
+models/**
+notebooks/

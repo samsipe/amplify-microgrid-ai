@@ -143,4 +143,8 @@ models/*
 **.hdf5
 notebooks/*
 !notebooks/**.ipynb
-.serverless/
+
+# App
+.serverless**
+node_modules
+package**
