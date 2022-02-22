@@ -2,7 +2,6 @@ from glob import glob
 from datetime import datetime
 import pytz
 from clearml import Dataset, Model
-from tensorflow import keras
 
 from dash import Dash, html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
@@ -23,6 +22,7 @@ app = Dash(
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"},
     ],
+    suppress_callback_exceptions=True,
 )
 
 server = app.server
@@ -76,9 +76,9 @@ def data_cache():
 
 
 @app.callback(
-    Output("forcast_data", "figure"), Input("interval-component", "n_intervals")
+    Output("forecast_data", "figure"), Input("interval-component", "n_intervals")
 )
-def forcast_data(n):
+def forecast_data(n):
     """This will get data from OpenWeather OnceCall API"""
 
     preds = data_cache()
@@ -91,7 +91,7 @@ def forcast_data(n):
         ],
         labels={
             "value": "Power (kW)",
-            "dt": "Date and Time (Local)",
+            "index": "Date and Time (Local)",
             "variable": "",
         },
         color_discrete_sequence=px.colors.qualitative.D3,
@@ -113,7 +113,8 @@ def forcast_data(n):
         showgrid=True,
     )
     fig.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        margin=dict(l=0, r=5),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
 
@@ -152,7 +153,8 @@ def historical_data(i):
     fig.update_xaxes(fixedrange=True, showgrid=True)
     fig.update_yaxes(fixedrange=True, showgrid=True)
     fig.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        margin=dict(l=0, r=5),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
 
@@ -164,8 +166,22 @@ LOGO = "https://images.plot.ly/logo/new-branding/plotly-logomark.png"
 
 nav = dbc.Nav(
     [
-        dbc.NavItem(dbc.NavLink("Prediction", active=True, href="#")),
-        # dbc.NavItem(dbc.NavLink("Historical", active=False, href="#")),
+        dbc.NavItem(
+            dbc.NavLink(
+                "Forecast",
+                href="#forecast",
+                id="forecast_link",
+                style={"textAlign": "center"},
+            )
+        ),
+        dbc.NavItem(
+            dbc.NavLink(
+                "Historical",
+                href="#historical",
+                id="historical_link",
+                style={"textAlign": "center"},
+            )
+        ),
     ],
     pills=True,
     className="g-0 ms-auto flex-nowrap mt-3 mt-md-0",
@@ -214,20 +230,31 @@ def toggle_navbar_collapse(n, is_open):
     return is_open
 
 
-dashboard = dbc.Container(
+forecast_dashboard = dbc.Container(
     [
         html.Div(
             id="graph_wrapper",
             children=[
                 html.H4(
-                    "Forcast Power Generation and Usage Predictions",
-                    className="mt-3",
+                    "Power Predictions from Forecast Weather",
+                    className="mt-5",
                     style={"textAlign": "center"},
                 ),
-                dcc.Graph(id="forcast_data"),
+                dcc.Graph(id="forecast_data"),
+            ],
+        ),
+        html.Div(className="pb-5"),
+    ]
+)
+
+historical_dashboard = dbc.Container(
+    [
+        html.Div(
+            id="graph_wrapper",
+            children=[
                 html.H4(
-                    "Historical Power Generation and Usage Predictions",
-                    className="mt-3",
+                    "Power Predictions from Historical Weather",
+                    className="mt-5",
                     style={"textAlign": "center"},
                 ),
                 dcc.Graph(id="historical_data"),
@@ -250,18 +277,57 @@ dashboard = dbc.Container(
     ]
 )
 
+
+@app.callback(
+    [
+        Output("dashboard", "children"),
+        Output("forecast_link", "active"),
+        Output("historical_link", "active"),
+    ],
+    [Input("url", "hash")],
+)
+def dashboard(hash):
+    if hash == "#forecast":
+        return forecast_dashboard, True, False
+    elif hash == "#historical":
+        return historical_dashboard, False, True
+    else:
+        return forecast_dashboard, True, False
+
+
 footer = dbc.Navbar(
     dbc.Container(
         [
-            dbc.Row(
-                dbc.Col(html.Footer(html.P("© 2022 Amplify", className="ms-2"))),
-                align="center",
-            )
-        ]
+            html.Div("© 2022 Amplify"),
+            html.Div(
+                [
+                    "Made with ⚡️ by ",
+                    html.A(
+                        "John",
+                        href="https://www.linkedin.com/in/john-droescher/",
+                        style={"textDecoration": "none"},
+                    ),
+                    ", ",
+                    html.A(
+                        "Christian",
+                        href="https://www.linkedin.com/in/christianwelling/",
+                        style={"textDecoration": "none"},
+                    ),
+                    ", and ",
+                    html.A(
+                        "Sam",
+                        href="https://www.linkedin.com/in/samsipe/",
+                        style={"textDecoration": "none"},
+                    ),
+                ]
+            ),
+        ],
     ),
     color="light",
     className="fixed-bottom",
 )
+
+location = dcc.Location(id="url", refresh=False)
 
 counter = dcc.Interval(
     id="interval-component",
@@ -269,7 +335,7 @@ counter = dcc.Interval(
     n_intervals=0,
 )
 
-app.layout = html.Div([navbar, dashboard, footer, counter])
+app.layout = html.Div([location, navbar, html.Div(id="dashboard"), footer, counter])
 
 if __name__ == "__main__":
     app.run_server(debug=True)
