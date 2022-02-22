@@ -108,13 +108,14 @@ def forecast_power(n):
         fixedrange=True,
         showgrid=True,
         range=[preds.index.min(), preds.index.max()],
+        automargin=False,
     )
     fig.update_yaxes(
         fixedrange=True,
         showgrid=True,
     )
     fig.update_layout(
-        margin=dict(l=0, r=5),
+        margin=dict(l=0, r=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
@@ -176,10 +177,17 @@ def historical_data(i):
         },
         color_discrete_sequence=px.colors.qualitative.D3,
     )
-    fig.update_xaxes(fixedrange=True, showgrid=True)
-    fig.update_yaxes(fixedrange=True, showgrid=True)
+    fig.update_xaxes(
+        fixedrange=True,
+        showgrid=True,
+        automargin=False,
+    )
+    fig.update_yaxes(
+        fixedrange=True,
+        showgrid=True,
+    )
     fig.update_layout(
-        margin=dict(l=0, r=5),
+        margin=dict(l=0, r=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
@@ -328,7 +336,7 @@ historical_dashboard = dbc.Container(
                     marks=None,
                 )
             ],
-            className="d-grid gap-2 col-6 mx-auto",
+            className="pt-3 d-grid gap-2 col-10 mx-auto",
         ),
         html.Div(
             [
