@@ -6,6 +6,7 @@ from clearml import Dataset, Model
 from dash import Dash, html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 
@@ -30,7 +31,7 @@ cache = Cache(
     app.server, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": "./data/cache"}
 )
 
-TIMEOUT = 180
+TIMEOUT = 300  # 5 minutes
 
 
 # Load the model
@@ -78,7 +79,7 @@ def data_cache():
 @app.callback(
     Output("forecast_data", "figure"), Input("interval-component", "n_intervals")
 )
-def forecast_data(n):
+def forecast_power(n):
     """This will get data from OpenWeather OnceCall API"""
 
     preds = data_cache()
@@ -116,6 +117,31 @@ def forecast_data(n):
         margin=dict(l=0, r=5),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
+    return fig
+
+
+@app.callback(
+    Output("forecast_energy", "figure"), Input("interval-component", "n_intervals")
+)
+def forecast_energy(n):
+    """This will get data from OpenWeather OnceCall API"""
+
+    preds = data_cache()
+    net_usage = preds["Predicted Usage"] - preds["Predicted Solar"]
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=net_usage.sum(),
+            number={"suffix": " kWh"},
+        )
+    )
+    fig.update_traces(
+        gauge_axis_range=[0, 1000],
+        gauge_bar_color=px.colors.qualitative.D3[2],
+        selector=dict(type="indicator"),
+    )
+    fig.update_layout(margin=dict(l=40, r=40, t=40, b=40))
     return fig
 
 
@@ -182,6 +208,15 @@ nav = dbc.Nav(
                 style={"textAlign": "center"},
             )
         ),
+        dbc.NavItem(
+            dbc.NavLink(
+                "Slide Deck",
+                href="https://docs.google.com/presentation/d/1yc1C59zZrl5paibX09wQk1N--wpwFLxlqsIg_4Q24M0/edit?usp=sharing",
+                target="blank",
+                id="slide_deck",
+                style={"textAlign": "center"},
+            )
+        ),
     ],
     pills=True,
     className="g-0 ms-auto flex-nowrap mt-3 mt-md-0",
@@ -236,14 +271,36 @@ forecast_dashboard = dbc.Container(
             id="graph_wrapper",
             children=[
                 html.H4(
-                    "Power Predictions from Forecast Weather",
+                    "Predicted Power from Forecast Weather",
                     className="mt-5",
                     style={"textAlign": "center"},
                 ),
                 dcc.Graph(id="forecast_data"),
+                html.H4(
+                    "Predicted Net Energy Usage over the Next 48 Hours",
+                    style={"textAlign": "center"},
+                ),
+                dcc.Graph(id="forecast_energy"),
             ],
         ),
-        html.Div(className="pb-5"),
+        html.Div(
+            [
+                html.H5("About"),
+                dcc.Markdown(
+                    """
+                    The **top figure** above displays predicted solar power generation and predicted total building power usage.
+                    The green bars represent optimal times to charge an electric vehicle based on minimizing peak electrical demand and electricity cost.
+                    The **bottom figure** is the predicted net energy usage for the building over the next 48 hours.
+                    These predictions could be used in other ways, such as controlling reserve battery storage, timing hot water heaters, and reducing air conditioner usage.
+
+                    These predictions are made in real time using a Long Short-Term Memory (LSTM) Deep Learning Model on current forecast weather data.
+                    This model was trained on historical weather data from the same building.
+
+                    Please go to the [historical](#historical) data page to compare the model's predictions versus actual solar and usage data from the test set.
+                    """
+                ),
+            ],
+        ),
     ]
 )
 
@@ -253,7 +310,7 @@ historical_dashboard = dbc.Container(
             id="graph_wrapper",
             children=[
                 html.H4(
-                    "Power Predictions from Historical Weather",
+                    "Predicted Power from Historical Weather",
                     className="mt-5",
                     style={"textAlign": "center"},
                 ),
@@ -273,7 +330,22 @@ historical_dashboard = dbc.Container(
             ],
             className="d-grid gap-2 col-6 mx-auto",
         ),
-        html.Div(className="pb-5"),
+        html.Div(
+            [
+                html.H5("About"),
+                dcc.Markdown(
+                    """
+                    The figure above displays predicted solar power generation and predicted total building power usage as well as actual solar power generation and actual total building usage for the same time period.
+                    Moving the slider at the bottom of the figure will select a different 48 hour window from the test set.
+
+                    These predictions are made in real time, when the slider is moved, using a Long Short-Term Memory (LSTM) Deep Learning Model trained on historical weather data from the same building.
+                    There is no overlap between the training data and the test data seen above.
+
+                    Please go to the [forecast](#forecast) data page to see the current power and energy predictions for the building.
+                    """
+                ),
+            ],
+        ),
     ]
 )
 
@@ -305,18 +377,21 @@ footer = dbc.Navbar(
                     html.A(
                         "John",
                         href="https://www.linkedin.com/in/john-droescher/",
+                        target="blank",
                         style={"textDecoration": "none"},
                     ),
                     ", ",
                     html.A(
                         "Christian",
                         href="https://www.linkedin.com/in/christianwelling/",
+                        target="blank",
                         style={"textDecoration": "none"},
                     ),
                     ", and ",
                     html.A(
                         "Sam",
                         href="https://www.linkedin.com/in/samsipe/",
+                        target="blank",
                         style={"textDecoration": "none"},
                     ),
                 ]
@@ -331,11 +406,19 @@ location = dcc.Location(id="url", refresh=False)
 
 counter = dcc.Interval(
     id="interval-component",
-    interval=15 * 60 * 1000,  # update every 5 minutes
+    interval=TIMEOUT * 1000,  # update every 5 minutes
     n_intervals=0,
 )
 
-app.layout = html.Div([location, navbar, html.Div(id="dashboard"), footer, counter])
+app.layout = html.Div(
+    [
+        location,
+        navbar,
+        html.Div(id="dashboard", className="pb-3 mb-5"),
+        footer,
+        counter,
+    ]
+)
 
 if __name__ == "__main__":
     app.run_server(debug=True)
