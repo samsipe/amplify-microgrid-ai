@@ -40,9 +40,10 @@ model = YeetLSTMv2(
     n_series_ft=7,
     n_series_out=2,
     n_lstm=400,
-    model_weights_path=Model(
-        model_id="f6b26b93ecc842319d0733711523f22e"
-    ).get_local_copy(),
+    # model_weights_path=Model(
+    #     model_id="f6b26b93ecc842319d0733711523f22e"
+    # ).get_local_copy(),
+    model_weights_path="models/lstm_weights.hdf5",
     production_mode=True,
 )
 
@@ -219,7 +220,7 @@ nav = dbc.Nav(
         dbc.NavItem(
             dbc.NavLink(
                 "Slide Deck",
-                href="https://docs.google.com/presentation/d/1yc1C59zZrl5paibX09wQk1N--wpwFLxlqsIg_4Q24M0/edit?usp=sharing",
+                href="https://docs.google.com/presentation/d/e/2PACX-1vT06gWZCeAlgXYaDCISYzmNJQR6VNKkXUM7l-DlcfSascUbV9HWGY0d4SDm3y9iT8KtHvaZfa62lyVj/pub",
                 target="blank",
                 id="slide_deck",
                 style={"textAlign": "center"},
@@ -378,7 +379,7 @@ def dashboard(hash):
 footer = dbc.Navbar(
     dbc.Container(
         [
-            html.Div("© 2022 Amplify"),
+            html.Div(f"© {datetime.now().year} Amplify"),
             html.Div(
                 [
                     "Made with ⚡️ by ",
@@ -398,7 +399,7 @@ footer = dbc.Navbar(
                     ", and ",
                     html.A(
                         "Sam",
-                        href="https://www.linkedin.com/in/samsipe/",
+                        href="https://samsipe.com/",
                         target="blank",
                         style={"textDecoration": "none"},
                     ),
