@@ -139,8 +139,9 @@ dmypy.json
 data/**
 **.csv
 logs/*
-models/*
+models/**
 **.hdf5
+!models/lstm_weights.hdf5
 notebooks/*
 !notebooks/**.ipynb
 

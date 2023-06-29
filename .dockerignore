@@ -160,4 +160,5 @@ package**
 data/**
 logs/**
 models/**
+!models/lstm_weights.hdf5
 notebooks/
