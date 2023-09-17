@@ -219,6 +219,15 @@ nav = dbc.Nav(
         ),
         dbc.NavItem(
             dbc.NavLink(
+                "GitHub",
+                href="https://github.com/samsipe/amplify-microgrid-ai",
+                target="blank",
+                id="github_link",
+                style={"textAlign": "center"},
+            )
+        ),
+        dbc.NavItem(
+            dbc.NavLink(
                 "Slide Deck",
                 href="https://docs.google.com/presentation/d/e/2PACX-1vT06gWZCeAlgXYaDCISYzmNJQR6VNKkXUM7l-DlcfSascUbV9HWGY0d4SDm3y9iT8KtHvaZfa62lyVj/pub",
                 target="blank",
@@ -261,6 +270,7 @@ navbar = dbc.Navbar(
     color="dark",
     dark=True,
 )
+
 
 # add callback for toggling the collapse on small screens
 @app.callback(
@@ -384,22 +394,22 @@ footer = dbc.Navbar(
                 [
                     "Made with ⚡️ by ",
                     html.A(
-                        "John",
-                        href="https://www.linkedin.com/in/john-droescher/",
+                        "Sam",
+                        href="https://samsipe.com/",
                         target="blank",
                         style={"textDecoration": "none"},
                     ),
                     ", ",
                     html.A(
-                        "Christian",
-                        href="https://www.linkedin.com/in/christianwelling/",
+                        "John",
+                        href="https://www.linkedin.com/in/john-droescher/",
                         target="blank",
                         style={"textDecoration": "none"},
                     ),
                     ", and ",
                     html.A(
-                        "Sam",
-                        href="https://samsipe.com/",
+                        "Christian",
+                        href="https://www.linkedin.com/in/christianwelling/",
                         target="blank",
                         style={"textDecoration": "none"},
                     ),

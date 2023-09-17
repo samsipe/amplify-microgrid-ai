@@ -54,7 +54,7 @@ This model has been packaged in a Dash application that can be deployed in a con
 
 To deploy with Docker Compose, first make a file called `.env` and input keys/secrets for [OpenWeather](https://openweathermap.org/api/one-call-api), ClearML, and AWS.
 
-```
+```shell
 OW_API_KEY=
 CLEARML_WEB_HOST=https://app.clear.ml
 CLEARML_API_HOST=https://api.clear.ml
@@ -69,7 +69,7 @@ AWS_DEFAULT_REGION=us-east-1
 
 Then run the following:
 
-```
+```shell
 docker-compose up -d --build
 ```
 
